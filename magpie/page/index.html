@@ -1,0 +1,239 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Magpie</title>
+<link rel="icon" href="icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400;14..32,500;14..32,600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js"></script>
+<style>
+:root{
+  --page:#fafafa;--ink:#111;--ink-2:#555;--ink-3:#8a8a8a;--rule:rgba(0,0,0,.1);
+  --accent:#1d7a58;--warn:#a15c00;--on-ink:#fff;--field:#fff;
+}
+:root:not([data-theme=light]){color-scheme:light dark}
+@media (prefers-color-scheme:dark){:root:not([data-theme=light]){
+  --page:#000;--ink:#f4f4f4;--ink-2:#a6a6a6;--ink-3:#6e6e6e;--rule:rgba(255,255,255,.12);
+  --accent:#3cc28f;--warn:#ffb340;--on-ink:#000;--field:#0d0d0d;
+}}
+:root[data-theme=dark]{
+  color-scheme:dark;
+  --page:#000;--ink:#f4f4f4;--ink-2:#a6a6a6;--ink-3:#6e6e6e;--rule:rgba(255,255,255,.12);
+  --accent:#3cc28f;--warn:#ffb340;--on-ink:#000;--field:#0d0d0d;
+}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--page);color:var(--ink);font:400 15px/1.5 Inter,sans-serif;-webkit-font-smoothing:antialiased;font-feature-settings:"tnum" 1}
+.i{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.75;stroke-linecap:round;stroke-linejoin:round;flex:none}
+.wrap{max-width:640px;margin:0 auto;padding:40px 16px 96px}
+header{display:flex;gap:16px;align-items:center;margin-bottom:8px}
+header img{width:56px;height:56px;flex:none}
+h1{font-size:28px;line-height:1.1;font-weight:600;letter-spacing:-.03em;margin:0}
+.lede{color:var(--ink-2);margin:16px 0 0}
+[hidden]{display:none!important}
+.sample{display:inline-block;margin-top:16px;font-size:13px;color:var(--ink-2);border:1px solid var(--rule);border-radius:6px;padding:2px 8px}
+h2{font-size:17px;line-height:1.3;font-weight:600;letter-spacing:-.01em;margin:48px 0 8px}
+p{margin:0}
+.note{color:var(--ink-2);font-size:14px}
+.state{display:flex;gap:8px;align-items:flex-start;margin:0 0 8px}
+.state .i{margin-top:3px}
+.state.ok .i{color:var(--accent)}
+.state.warn .i{color:var(--warn)}
+.state b{font-weight:500}
+.rows{border-top:1px solid var(--rule)}
+.row{display:flex;align-items:center;gap:16px;min-height:48px;padding:8px 0;border-bottom:1px solid var(--rule)}
+.row .k{flex:1;min-width:0}
+.row .v{color:var(--ink-2);text-align:right}
+.row .k small{display:block;color:var(--ink-2);font-size:13px}
+.row>.i{color:var(--ink-2)}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:40px;padding:0 16px;border-radius:8px;font:500 14px/1 Inter,sans-serif;text-decoration:none;cursor:pointer;border:1px solid transparent;white-space:nowrap}
+.btn.ink{background:var(--ink);color:var(--on-ink)}
+.btn.line{background:none;color:var(--ink);border-color:var(--rule)}
+.btn[disabled]{opacity:.5;cursor:default}
+.muted{color:var(--ink-3);font-size:14px;white-space:nowrap}
+.setup{margin-top:16px}
+.made{display:none;margin-top:24px;gap:24px;align-items:flex-start}
+.made.on{display:flex}
+.qr{width:160px;height:160px;flex:none;background:#fff;padding:8px;border-radius:8px;border:1px solid var(--rule)}
+.qr svg{display:block;width:100%;height:100%}
+.made .side{flex:1;min-width:0}
+.field{display:flex;gap:8px;margin:8px 0}
+.field input{flex:1;min-width:0;height:40px;border:1px solid var(--rule);border-radius:8px;background:var(--field);color:var(--ink);font:400 13px/1 Inter,sans-serif;padding:0 12px}
+.err{color:var(--warn);font-size:14px;margin-top:8px}
+footer{margin-top:64px;display:flex;justify-content:space-between;align-items:center;gap:16px;color:var(--ink-3);font-size:13px}
+footer button{font:inherit;color:inherit;background:none;border:0;padding:8px 0;cursor:pointer;text-decoration:underline;text-underline-offset:3px}
+@media (max-width:520px){
+  .made.on{flex-direction:column}
+  .row .v{font-size:14px}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <img src="icon.png" alt="">
+    <h1>Magpie</h1>
+  </header>
+  <p class="lede">Your own drive, synced through Frankfurt. The server keeps every file encrypted with a key only your devices have, so it can't read them.</p>
+  <span class="sample" id="sample" hidden>Sample data</span>
+
+  <h2>Server</h2>
+  <div id="server"><p class="note">Checking Frankfurt…</p></div>
+
+  <h2>Get Magpie</h2>
+  <div class="rows">
+    <div class="row">
+      <svg class="i" viewBox="0 0 24 24"><path d="M18 5a2 2 0 0 1 2 2v8.526a2 2 0 0 0 .212.897l1.068 2.127a1 1 0 0 1-.9 1.45H3.62a1 1 0 0 1-.9-1.45l1.068-2.127A2 2 0 0 0 4 15.526V7a2 2 0 0 1 2-2z"/><path d="M20.054 15.987H3.946"/></svg>
+      <div class="k">Mac<small id="mac-note">macOS 14 or later</small></div>
+      <span id="mac-act" class="muted">Checking</span>
+    </div>
+    <div class="row">
+      <svg class="i" viewBox="0 0 24 24"><rect width="14" height="20" x="5" y="2" rx="2" ry="2"/><path d="M12 18h.01"/></svg>
+      <div class="k">iPhone<small>iOS 17 or later, through TestFlight</small></div>
+      <span id="ios-act" class="muted">Checking</span>
+    </div>
+  </div>
+
+  <h2 id="setup-title">Set up your first device</h2>
+  <div id="setup">
+    <p class="note" id="setup-note">Install Magpie, then paste this link into it or scan it with your iPhone. The link works once, for 15 minutes. Your first device makes the encryption key; add the rest from Magpie on that device.</p>
+    <div class="setup"><button class="btn ink" id="make">Make a setup link</button></div>
+    <div class="made" id="made">
+      <div class="qr" id="qr" aria-label="Setup link as a QR code"></div>
+      <div class="side">
+        <p class="note">Setup link</p>
+        <div class="field">
+          <input id="link" readonly aria-label="Setup link">
+          <button class="btn line" id="copy" title="Copy"><svg class="i" viewBox="0 0 24 24"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg><span>Copy</span></button>
+        </div>
+        <p class="note" id="expires"></p>
+      </div>
+    </div>
+    <p class="err" id="setup-err" hidden></p>
+  </div>
+
+  <footer>
+    <span id="checked"></span>
+    <button id="theme">Dark</button>
+  </footer>
+</div>
+<script>
+const $ = (id) => document.getElementById(id);
+const ICON = {
+  ok: '<svg class="i" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></svg>',
+  warn: '<svg class="i" viewBox="0 0 24 24"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>',
+  dl: '<svg class="i" viewBox="0 0 24 24"><path d="M12 15V3"/><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5 5 5-5"/></svg>',
+};
+const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
+const bytes = (n) => {
+  if (n < 1000) return `${n} bytes`;
+  const u = ["KB", "MB", "GB", "TB"]; let i = -1;
+  do { n /= 1000; i++; } while (n >= 1000 && i < u.length - 1);
+  return `${n.toFixed(n < 10 ? 2 : n < 100 ? 1 : 0)} ${u[i]}`;
+};
+const ago = (iso) => {
+  const s = (Date.now() - new Date(iso)) / 1000;
+  if (s < 90) return "just now";
+  if (s < 3600) return `${Math.round(s / 60)} minutes ago`;
+  if (s < 86400 * 2) return `${Math.round(s / 3600)} hours ago`;
+  return `${Math.round(s / 86400)} days ago`;
+};
+const span = (s) => s < 3600 ? `${Math.max(1, Math.round(s / 60))} minutes` : s < 86400 * 2 ? `${Math.round(s / 3600)} hours` : `${Math.round(s / 86400)} days`;
+const plural = (n, one, many) => `${n.toLocaleString()} ${n === 1 ? one : many}`;
+
+function renderServer(st) {
+  const h = st.hub;
+  if (!h || h.error) {
+    $("server").innerHTML = `<div class="state warn">${ICON.warn}<p><b>Can't reach the server.</b> <span class="note">${esc(h?.error || "No answer from Frankfurt.")}</span></p></div>`;
+    return;
+  }
+  const state = !st.open
+    ? `<div class="state warn">${ICON.warn}<p><b>Running, but your devices can't reach it yet.</b> <span class="note">Port 22000 is closed from outside; open it for TCP and UDP in Oracle Cloud.</span></p></div>`
+    : h.folderErrors
+      ? `<div class="state warn">${ICON.warn}<p><b>Running, with a folder problem.</b> <span class="note">Magpie will say more in the duty report.</span></p></div>`
+      : `<div class="state ok">${ICON.ok}<p><b>Running and reachable.</b></p></div>`;
+  const devs = h.devices || [];
+  const devRows = devs.length
+    ? devs.map((d) => `<div class="row"><div class="k">${esc(d.name || d.id.slice(0, 7))}</div><span class="v">${d.connected ? "Connected" : "Seen " + ago(d.lastSeen)}</span></div>`).join("")
+    : `<div class="row"><div class="k note">No devices yet</div></div>`;
+  $("server").innerHTML = `${state}
+    <div class="rows">
+      <div class="row"><div class="k">Files</div><span class="v">${h.files.toLocaleString()}</span></div>
+      <div class="row"><div class="k">Stored, encrypted</div><span class="v">${bytes(h.bytes)}</span></div>
+      <div class="row"><div class="k">Older versions kept</div><span class="v">${h.historyFiles ? `${plural(h.historyFiles, "version", "versions")}, ${bytes(h.historyBytes)}` : "None yet"}</span></div>
+      <div class="row"><div class="k">Running for</div><span class="v">${span(h.uptimeS)}</span></div>
+    </div>
+    <h2>Devices</h2>
+    <div class="rows">${devRows}</div>`;
+  const first = devs.length === 0;
+  $("setup-title").textContent = first ? "Set up your first device" : "Add a device";
+  $("setup-note").textContent = first
+    ? "Install Magpie, then paste this link into it or scan it with your iPhone. The link works once, for 15 minutes. Your first device makes the encryption key; add the rest from Magpie on that device."
+    : "Open Magpie on one of your devices and choose Add a device. New devices need the encryption key, and only your devices have it.";
+  $("make").parentElement.hidden = !first;
+  if (!first) $("made").classList.remove("on");
+}
+
+function renderApps(st) {
+  if (st.mac) {
+    $("mac-note").textContent = `Version ${st.mac.version}, ${bytes(st.mac.size)}, macOS 14 or later`;
+    $("mac-act").outerHTML = `<a class="btn ink" id="mac-act" href="${esc(st.mac.url)}">${ICON.dl}Download</a>`;
+  } else {
+    $("mac-act").textContent = "First build on its way";
+  }
+  if (st.iphone) $("ios-act").outerHTML = `<a class="btn line" id="ios-act" href="${esc(st.iphone.url)}">Open TestFlight</a>`;
+  else $("ios-act").textContent = "On TestFlight soon";
+}
+
+async function load() {
+  try {
+    const st = await (await fetch("api/state")).json();
+    $("sample").hidden = !st.sample;
+    renderServer(st);
+    renderApps(st);
+    $("checked").textContent = `Checked ${new Date().toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}`;
+  } catch {
+    $("server").innerHTML = `<div class="state warn">${ICON.warn}<p><b>This page can't reach its server.</b></p></div>`;
+  }
+}
+
+$("make").onclick = async () => {
+  $("make").disabled = true; $("setup-err").hidden = true;
+  try {
+    const r = await (await fetch("api/setup-link", { method: "POST" })).json();
+    if (!r.link) throw new Error(r.error || "No link came back.");
+    $("link").value = r.link;
+    const q = qrcode(0, "M"); q.addData(r.link); q.make();
+    $("qr").innerHTML = q.createSvgTag({ cellSize: 4, margin: 0, scalable: true });
+    $("expires").textContent = `Works once, until ${new Date(r.expires).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}.`;
+    $("made").classList.add("on");
+    $("make").textContent = "Make a new link";
+  } catch (e) {
+    $("setup-err").textContent = `Couldn't make a link: ${e.message}`; $("setup-err").hidden = false;
+  }
+  $("make").disabled = false;
+};
+$("copy").onclick = async () => {
+  try { await navigator.clipboard.writeText($("link").value); } catch { $("link").select(); document.execCommand("copy"); }
+  $("copy").querySelector("span").textContent = "Copied";
+  setTimeout(() => ($("copy").querySelector("span").textContent = "Copy"), 1600);
+};
+
+const root = document.documentElement;
+const dark = () => root.dataset.theme ? root.dataset.theme === "dark" : matchMedia("(prefers-color-scheme: dark)").matches;
+const syncTheme = () => ($("theme").textContent = dark() ? "Light" : "Dark");
+try { const t = localStorage.getItem("magpie-theme"); if (t) root.dataset.theme = t; } catch {}
+$("theme").onclick = () => {
+  root.dataset.theme = dark() ? "light" : "dark";
+  try { localStorage.setItem("magpie-theme", root.dataset.theme); } catch {}
+  syncTheme();
+};
+syncTheme();
+load();
+setInterval(load, 30000);
+</script>
+</body>
+</html>

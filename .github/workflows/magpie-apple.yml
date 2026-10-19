@@ -5,6 +5,10 @@
 #     appcast on the mac-latest release (the Magpie page links Magpie.dmg)
 #   - the iPhone app (app + File Provider extension), sent to TestFlight
 # Each job also keeps pictures of its screens (sample data) as an artifact.
+#
+# Secrets: ASC_KEY_ID, ASC_ISSUER_ID, ASC_KEY_P8 (App Store Connect API key),
+# MAC_DEVID_P12/MAC_DEVID_PASSWORD (Developer ID), IOS_DEV_P12/IOS_DEV_PASSWORD
+# (CI's lasting development key), SPARKLE_ED_KEY (signs Mac updates).
 name: magpie-apple
 
 on:
