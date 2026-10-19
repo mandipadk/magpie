@@ -46,12 +46,13 @@ key() {
   fi
   ui "get entire contents of window \"$1\"" > "$OUT/ui-$(echo "$1" | tr ' ' -).txt" 2>&1 || true
 }
-# press <window> <button>: SwiftUI nests buttons in groups, so search the window
+# press <window> <button> [process]: buttons sit nested in groups, so search the window
 press() {
-  osascript - "$1" "$2" <<'AS'
-on run {w, label}
-  tell application "System Events" to tell process "Magpie"
+  osascript - "$1" "$2" "${3:-Magpie}" <<'AS'
+on run {w, label, p}
+  tell application "System Events" to tell process p
     set frontmost to true
+    if w is "" then set w to name of window 1
     repeat with e in (entire contents of window w)
       try
         if role of e is "AXButton" and (name of e is label or description of e is label or title of e is label) then
@@ -137,7 +138,12 @@ open "$CS"; sleep 3; shot "3-finder-first-open"
 # same switch.
 pluginkit -m -v -i dev.mandip.magpie.files > "$OUT/pluginkit.txt" 2>&1 || true
 pluginkit -e use -i dev.mandip.magpie.files || true
-sleep 5
+# and the folder itself: Finder's Enable (what the owner clicked once)
+press "" "Enable" Finder > "$OUT/finder-enable.txt" 2>&1 || {
+  # the bar's button at its place in a 1024x768 screen, if it isn't exposed
+  osascript -e 'tell application "System Events" to click at {939, 151}' >> "$OUT/finder-enable.txt" 2>&1 || true
+}
+sleep 5; shot "3-finder-after-enable"
 osascript -e 'tell application "Finder" to close every window' || true
 open "$CS"; sleep 5; shot "3-finder"
 pluginkit -m -v -i dev.mandip.magpie.files >> "$OUT/pluginkit.txt" 2>&1 || true
