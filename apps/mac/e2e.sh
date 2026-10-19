@@ -154,9 +154,11 @@ SPARKLE_DIR=$(mktemp -d)
 curl -fsSL "https://github.com/sparkle-project/Sparkle/releases/download/$SPARKLE_VERSION/Sparkle-$SPARKLE_VERSION.tar.xz" | tar -xJ -C "$SPARKLE_DIR"
 CLI=$(find "$SPARKLE_DIR" -path '*sparkle.app/Contents/MacOS/sparkle' | head -1)
 [[ -x "$CLI" ]] || { ls -R "$SPARKLE_DIR" | head -50; fail "no Sparkle command-line tool in the Sparkle download"; }
-grep -q "Magpie-$BUILD.zip" <(curl -fsSL "$REL/appcast.xml") || fail "the appcast doesn't offer Magpie-$BUILD.zip"
-# The same appcast and EdDSA check the app uses (SUFeedURL, SUPublicEDKey).
-("$CLI" "$APP" --check-immediately --grant-automatic-checks --verbose > "$OUT/sparkle.txt" 2>&1; echo "exit $?" >> "$OUT/sparkle.txt") &
+# The candidate appcast; it goes live only if this passes (magpie-apple.yml).
+FEED="$REL/appcast-candidate.xml"
+grep -q "Magpie-$BUILD.zip" <(curl -fsSL "$FEED") || fail "the candidate appcast doesn't offer Magpie-$BUILD.zip"
+# The same EdDSA check the app uses (SUPublicEDKey in its Info.plist).
+("$CLI" "$APP" --feed-url "$FEED" --check-immediately --grant-automatic-checks --verbose > "$OUT/sparkle.txt" 2>&1; echo "exit $?" >> "$OUT/sparkle.txt") &
 SPID=$!
 waitfor 300 "Sparkle to install build $BUILD with Magpie running" bash -c "[[ \$(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' '$APP/Contents/Info.plist' 2>/dev/null) == $BUILD ]]"
 for _ in $(seq 60); do kill -0 $SPID 2>/dev/null || break; sleep 1; done

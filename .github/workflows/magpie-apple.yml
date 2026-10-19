@@ -268,7 +268,10 @@ jobs:
           gh release view mac-latest >/dev/null 2>&1 || \
             gh release create mac-latest --title "Magpie for Mac" --prerelease \
               --notes "The latest Magpie for Mac, signed with Developer ID and notarized."
-          gh release upload mac-latest "$RUNNER_TEMP/Magpie.dmg" "$RUNNER_TEMP/Magpie-$BUILD_NUMBER.zip" "$RUNNER_TEMP/appcast.xml" --clobber
+          # The update goes out as appcast-candidate.xml; the e2e job makes it the
+          # live appcast.xml only after updating a running, joined Magpie with it.
+          cp "$RUNNER_TEMP/appcast.xml" "$RUNNER_TEMP/appcast-candidate.xml"
+          gh release upload mac-latest "$RUNNER_TEMP/Magpie.dmg" "$RUNNER_TEMP/Magpie-$BUILD_NUMBER.zip" "$RUNNER_TEMP/appcast-candidate.xml" --clobber
           gh release edit mac-latest --notes "The latest Magpie for Mac (build $BUILD_NUMBER), signed with Developer ID and notarized. Built from ${GITHUB_SHA::7}."
           # keep the three newest update zips (older installs update from the newest);
           # old numbered disk images are no longer offered, only kept for e2e's "previous build"
@@ -288,6 +291,8 @@ jobs:
     if: github.event_name == 'push' || inputs.publish
     runs-on: macos-15
     timeout-minutes: 40
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
@@ -298,6 +303,14 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           E2E_OUT: ${{ runner.temp }}/e2e
         run: apps/mac/e2e.sh
+      - name: Offer the update
+        # only now, after e2e updated a running Magpie from the candidate
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          curl -fsSL -o "$RUNNER_TEMP/appcast.xml" "https://github.com/${GITHUB_REPOSITORY}/releases/download/mac-latest/appcast-candidate.xml"
+          grep -q "Magpie-$BUILD_NUMBER.zip" "$RUNNER_TEMP/appcast.xml"
+          gh release upload mac-latest "$RUNNER_TEMP/appcast.xml" --clobber -R "$GITHUB_REPOSITORY"
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         if: always()
         with:
