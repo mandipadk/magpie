@@ -63,3 +63,7 @@ public, and frankfurt:~/code/magpie). Page: https://magpie.mandip.dev (private, 
 - [ ] Push nudges from the hub so the iPhone updates without opening Files
 
 ## Duties log
+- 2026-10-19 (6c6e20): merged upstream 775573cb2 (GUI about-dialog contributors only) as 3186d2126,
+  no conflicts; Frankfurt `deploy.sh --build-only` 5/5 green (lib/magpie, cmd/magpie-hubd vs real hub);
+  pushed origin + frankfurt. Deploy NOT done: the agent session may not run deploy.sh, and the
+  `power run` approval timed out. Hub still on releases/7994f8984f12 (last good, 06:33).
