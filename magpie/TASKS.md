@@ -6,8 +6,24 @@ Finder and Files. Working copy: chicago:~/code/magpie (pushes to origin = github
 public, and frankfurt:~/code/magpie). Page: https://magpie.mandip.dev (private, magpie/page).
 
 ## Waiting on the owner
-- [ ] iPhone: install from TestFlight (internal group "Owner", app "Space: Magpie"), join with an
-      invite from the Mac, then: save on Mac -> shows on phone, a conflict shown, Version history
+- [ ] iPhone (app already installed): page > Add a device on the Mac (or menu bar > Add Device…),
+      scan with Magpie on the iPhone; then save on Mac -> Files on the phone. See SCOPE.md.
+
+## Critic round (2026-10-19, 14:00) and the owner's page correction
+- [x] Page "Add a device": the owner meant the page's button, gone once a device existed. A page link
+      can't carry the encryption key (the hub never has it), so the button opens the Mac's Add Device
+      (magpie1:add-device) with the QR and link; elsewhere the page says to open it on the Mac
+- [x] Page: magpie mark (apps/art/magpie.svg, also the app icons and join screens), Inter 700
+      headings, heavier Mac/iPhone titles, less space above the footer, TestFlight line in plain words
+- [x] Page: older versions say when one was last kept and link "Browse in Magpie" (magpie1:history)
+- [x] Hub: 6 versions kept before history existed were stranded in .stversions; hubd moves them
+      into the history folder (deployed 30eadb32921b: 6 versions, 27 MB, visible to devices)
+- [x] Revocation: removing a device (page "Remove", or magpie-hubd remove) replaces the invite key;
+      the hub publishes it in the history folder to the devices still in; a removed device's invites
+      are refused (TestJoinByInvite vs a real hub, 3x green). Deployed.
+- [x] E2E on a fresh Mac in CI (apps/mac/e2e.sh, job e2e): page dmg + Gatekeeper, Sparkle 20 -> 22,
+      join, Finder, Mac save -> phone engine, phone -> Mac on demand, conflict in the menu bar
+- [x] SCOPE.md: what is and isn't tested
 
 ## Owner reports (2026-10-19, afternoon)
 - [x] "Add a device button is gone": it sat in the device list's section footer, which a grouped Form
@@ -67,7 +83,7 @@ public, and frankfurt:~/code/magpie). Page: https://magpie.mandip.dev (private, 
       (deployed: live hub migrated 06:33 UTC). Mac: Finder "Version History…" window + Settings >
       History; iPhone: Version history in the app
 - [ ] Push nudges from the hub so the iPhone updates without opening Files
-- [ ] Real lock-out for a removed device (security review 2026-10-19): every device holds the hub's
+- [x] Real lock-out for a removed device (security review 2026-10-19; done the same day, see above): every device holds the hub's
       invite key and the folder password, so a removed (e.g. stolen) device can mint a fresh token
       and join again. Proposal: hub-issued invites over the device's own connection (or per-device
       invite keys the hub can revoke), and a password rotation path. Needs app changes.

@@ -314,6 +314,7 @@ struct AddDeviceSheet: View {
                         Task { try? await Task.sleep(for: .seconds(2)); copied = false }
                     }
                 } label: { Label(copied ? "Copied" : "Copy Link", systemImage: copied ? "checkmark" : "doc.on.doc") }
+                .keyboardShortcut("c", modifiers: .command)
                 .disabled(link == nil)
                 Spacer()
                 Button("Done") { dismiss() }.keyboardShortcut(.defaultAction)

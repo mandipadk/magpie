@@ -101,7 +101,8 @@ struct MenuLabel: View {
                 }
                 NSApp.activate(ignoringOtherApps: true)
             }
-            .accessibilityLabel("Magpie, \(model.headline)")
+            .accessibilityLabel(model.conflicts.isEmpty ? "Magpie, \(model.headline)"
+                : "Magpie, \(model.conflicts.count == 1 ? "a conflict needs you" : "\(model.conflicts.count) conflicts need you")")
             .onReceive(history.$path.compactMap { $0 }) { path in
                 history.path = nil
                 openWindow(id: "history", value: path)

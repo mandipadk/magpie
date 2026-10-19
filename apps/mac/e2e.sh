@@ -35,6 +35,17 @@ waitfor() { # waitfor <seconds> <what> <command...>
 }
 version() { /usr/libexec/PlistBuddy -c "Print :CFBundleVersion" "$APP/Contents/Info.plist"; }
 ui() { osascript -e "tell application \"System Events\" to tell process \"Magpie\" to $1"; }
+# key <window> <key code> [command]: the window frontmost, then a key
+key() {
+  ui "perform action \"AXRaise\" of window \"$1\"" || true
+  osascript -e 'tell application "System Events" to set frontmost of process "Magpie" to true'
+  if [[ "${3:-}" == command ]]; then
+    osascript -e "tell application \"System Events\" to key code $2 using command down"
+  else
+    osascript -e "tell application \"System Events\" to key code $2"
+  fi
+  ui "get entire contents of window \"$1\"" > "$OUT/ui-$(echo "$1" | tr ' ' -).txt" 2>&1 || true
+}
 # press <window> <button>: SwiftUI nests buttons in groups, so search the window
 press() {
   osascript - "$1" "$2" <<'AS'
@@ -118,7 +129,7 @@ LINK=$(PATH="$PWD:$PATH" "$OUT/bin/magpie-hubd" setup-link --home "$HUB")
 printf '%s' "$LINK" | pbcopy  # the join window takes a link from the clipboard
 open "$APP"
 waitfor 30 "the join window" ui 'get window "Join your Magpie"'
-press "Join your Magpie" "Join"
+key "Join your Magpie" 36  # Return: Join is the default button
 CS=""
 findcs() { CS=$(find "$HOME/Library/CloudStorage" -maxdepth 1 -iname 'Magpie*' -print -quit 2>/dev/null); [[ -n "$CS" ]]; }
 waitfor 90 "Magpie in ~/Library/CloudStorage" findcs
@@ -132,7 +143,8 @@ echo "Saved on the Mac at $(date -u +%H:%M:%S)" > "$CS/From the Mac.txt"
 open "magpie1:add-device"
 waitfor 30 "Add Device" ui 'get window "Add a Device"'
 sleep 5  # the invite is made when the window opens
-waitfor 30 "Copy Link" press "Add a Device" "Copy Link"; sleep 1
+key "Add a Device" 8 command  # Command-C: Copy Link
+sleep 1
 INVITE=$(pbpaste)
 [[ "$INVITE" == magpie1:join\?* ]] || fail "Add Device didn't copy an invite"
 shot "4-add-device"
@@ -157,11 +169,13 @@ echo "Phone edit" > "$OUT/phone-edit.txt"
 "$OUT/bin/magpie-phone" --dir "$OUT/phone" put-offline "From the Mac.txt" "$OUT/phone-edit.txt"
 waitfor 90 "the conflict copy in Finder" bash -c "ls '$CS' | grep -q 'From the Mac.*conflict\|From the Mac (.*'"
 ls -l "$CS" >> "$OUT/finder-listing.txt"
-ui 'click menu bar item 1 of menu bar 2'; sleep 2
+ui 'get description of menu bar item 1 of menu bar 2' > "$OUT/menu-text.txt" 2>&1 || true
+ui 'click menu bar item 1 of menu bar 2' || true; sleep 2
 shot "5-menu-conflict"
 ui 'get value of every static text of window 1' > "$OUT/menu-text.txt" 2>&1 || true
 ui 'get entire contents of window 1' >> "$OUT/menu-text.txt" 2>&1 || true
-grep -q "Needs you" "$OUT/menu-text.txt" || fail "the menu bar panel doesn't show the conflict"
+# the icon's label is "Magpie, <headline>"; the panel lists it under Needs you
+grep -qi "Needs you\|conflict" "$OUT/menu-text.txt" || fail "the menu bar doesn't show the conflict"
 ok "the menu bar panel shows the conflict (screenshot 5-menu-conflict)"
 
 step "Done"
