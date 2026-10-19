@@ -1,0 +1,42 @@
+# Keeps Magpie CI's Apple signing in order.
+#   list            the team's signing certificates (read-only)
+#   make-ci-dist    an Apple Distribution certificate for CI's lasting key, from
+#                   the CSR in apps/ci-dist.csr (the key is on Chicago; the
+#                   resulting .p12 becomes the IOS_DIST_P12 secret)
+name: magpie-certs
+on:
+  workflow_dispatch:
+    inputs:
+      action:
+        type: choice
+        options: [list, make-ci-dist]
+        default: list
+jobs:
+  certs:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Certificates
+        env:
+          ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ACTION: ${{ inputs.action }}
+        run: |
+          ASC_KEY_ID=$(printf '%s' "$ASC_KEY_ID" | tr -d '[:space:]'); ASC_ISSUER_ID=$(printf '%s' "$ASC_ISSUER_ID" | tr -d '[:space:]')
+          export ASC_KEY_ID ASC_ISSUER_ID
+          mkdir -p "$RUNNER_TEMP/keys" out
+          if [[ "$ASC_KEY_P8" == -----BEGIN* ]]; then printf '%s' "$ASC_KEY_P8"; else printf '%s' "$ASC_KEY_P8" | base64 --decode; fi > "$RUNNER_TEMP/keys/key.p8"
+          python3 -m venv "$RUNNER_TEMP/venv" && "$RUNNER_TEMP/venv/bin/pip" -q install 'pyjwt[crypto]'
+          export ASC_KEY_PATH="$RUNNER_TEMP/keys/key.p8"
+          PY="$RUNNER_TEMP/venv/bin/python"
+          case "$ACTION" in
+            make-ci-dist) $PY apps/asc.py dist-cert apps/ci-dist.csr out/ci-dist.cer ;;
+          esac
+          $PY apps/asc.py certs
+          rm -rf "$RUNNER_TEMP/keys"
+      - uses: actions/upload-artifact@v4
+        if: inputs.action == 'make-ci-dist'
+        with:
+          name: ci-dist-cert
+          path: out/ci-dist.cer

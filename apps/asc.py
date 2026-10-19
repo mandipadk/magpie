@@ -10,6 +10,9 @@
     asc.py dev-cert <csr file> <out file>      a development certificate for CI's own lasting key
     asc.py devid-profile <identifier> <name> <cert serial hex> <out file>
                                                a fresh Developer ID (Mac, direct) provisioning profile
+    asc.py dist-cert <csr file> <out file>     an Apple Distribution certificate for CI's own lasting key
+    asc.py store-profile <identifier> <name> <cert serial hex> <out file>
+                                               a fresh App Store (iOS) provisioning profile
 
 Reads ASC_KEY_ID, ASC_ISSUER_ID and ASC_KEY_PATH (the .p8 file). Needs PyJWT
 with its crypto extra.
@@ -64,16 +67,20 @@ def bundle(identifier):
 
 
 def devid_profile(identifier, name, serial, out):
+    make_profile(identifier, name, serial, out, "MAC_APP_DIRECT", ("DEVELOPER_ID_APPLICATION",))
+
+
+def make_profile(identifier, name, serial, out, profile_type, cert_types):
     b, _ = bundle(identifier)
     status, certs = call("GET", "/certificates?limit=200")
     if status != 200:
         sys.exit(f"cannot list certificates ({status}): {certs}")
     want = serial.lower().lstrip("0")
     match = [c for c in certs["data"]
-             if c["attributes"]["certificateType"].startswith("DEVELOPER_ID_APPLICATION")
+             if c["attributes"]["certificateType"].startswith(cert_types)
              and c["attributes"]["serialNumber"].lower().lstrip("0") == want]
     if not match:
-        sys.exit(f"no Developer ID Application certificate with serial {serial} on the team")
+        sys.exit(f"no {' or '.join(cert_types)} certificate with serial {serial} on the team")
     # replace any profile of the same name, so it always carries today's capabilities
     status, old = call("GET", f"/profiles?filter[name]={urllib.parse.quote(name)}&limit=50")
     for p in old.get("data", []) if status == 200 else []:
@@ -81,7 +88,7 @@ def devid_profile(identifier, name, serial, out):
             call("DELETE", f"/profiles/{p['id']}")
     status, made = call("POST", "/profiles", {"data": {
         "type": "profiles",
-        "attributes": {"name": name, "profileType": "MAC_APP_DIRECT"},
+        "attributes": {"name": name, "profileType": profile_type},
         "relationships": {
             "bundleId": {"data": {"type": "bundleIds", "id": b["id"]}},
             "certificates": {"data": [{"type": "certificates", "id": match[0]["id"]}]},
@@ -93,6 +100,21 @@ def devid_profile(identifier, name, serial, out):
     with open(out, "wb") as f:
         f.write(base64.b64decode(made["data"]["attributes"]["profileContent"]))
     print(f"profile {name} for {identifier}: {made['data']['attributes']['uuid']}")
+
+
+def new_cert(csr_file, out, cert_type):
+    csr = open(csr_file).read()
+    csr = "".join(l for l in csr.splitlines() if "-----" not in l)
+    status, made = call("POST", "/certificates", {"data": {
+        "type": "certificates",
+        "attributes": {"certificateType": cert_type, "csrContent": csr},
+    }})
+    if status not in (200, 201):
+        sys.exit(f"could not make the certificate ({status}): {made}")
+    import base64
+    with open(out, "wb") as f:
+        f.write(base64.b64decode(made["data"]["attributes"]["certificateContent"]))
+    print(f"made {cert_type.lower()} certificate {made['data']['id']}")
 
 
 def ensure_bundle(identifier, name):
@@ -146,20 +168,13 @@ def main():
                 st, _ = call("DELETE", f"/certificates/{c['id']}")
                 print(f"revoked {c['id']} ({st})")
     elif len(sys.argv) >= 4 and sys.argv[1] == "dev-cert":
-        csr = open(sys.argv[2]).read()
-        csr = "".join(l for l in csr.splitlines() if "-----" not in l)
-        status, made = call("POST", "/certificates", {"data": {
-            "type": "certificates",
-            "attributes": {"certificateType": "DEVELOPMENT", "csrContent": csr},
-        }})
-        if status not in (200, 201):
-            sys.exit(f"could not make the certificate ({status}): {made}")
-        import base64
-        with open(sys.argv[3], "wb") as f:
-            f.write(base64.b64decode(made["data"]["attributes"]["certificateContent"]))
-        print(f"made development certificate {made['data']['id']}")
+        new_cert(sys.argv[2], sys.argv[3], "DEVELOPMENT")
     elif len(sys.argv) >= 6 and sys.argv[1] == "devid-profile":
         devid_profile(*sys.argv[2:6])
+    elif len(sys.argv) >= 6 and sys.argv[1] == "store-profile":
+        make_profile(*sys.argv[2:6], "IOS_APP_STORE", ("DISTRIBUTION", "IOS_DISTRIBUTION"))
+    elif len(sys.argv) >= 4 and sys.argv[1] == "dist-cert":
+        new_cert(sys.argv[2], sys.argv[3], "DISTRIBUTION")
     else:
         sys.exit(__doc__)
 
