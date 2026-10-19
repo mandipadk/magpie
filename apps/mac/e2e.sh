@@ -206,7 +206,8 @@ waitfor 60 "the phone's file in Finder" test -e "$CS/From the iPhone.txt"
 ls -lO "$CS" > "$OUT/finder-listing.txt"
 grep -q 'dataless.*From the iPhone.txt' "$OUT/finder-listing.txt" && ok "it arrives as a placeholder (dataless) until opened" || echo "  note: not a placeholder: $(grep 'From the iPhone' "$OUT/finder-listing.txt")"
 # opening it downloads it; the first read can fail while File Provider fetches
-opened() { cat "$CS/From the iPhone.txt" > "$OUT/mac-read.txt" 2>> "$OUT/mac-read.err" && cmp -s "$OUT/mac-read.txt" "$OUT/from-phone.txt"; }
+swiftc -O -o "$OUT/bin/open-file" apps/mac/open-file.swift
+opened() { "$OUT/bin/open-file" "$CS/From the iPhone.txt" > "$OUT/mac-read.txt" 2>> "$OUT/mac-read.err" && cmp -s "$OUT/mac-read.txt" "$OUT/from-phone.txt"; }
 waitfor 60 "the phone's file to open intact on the Mac" opened
 ls -lO "$CS" >> "$OUT/finder-listing.txt"
 ok "a file saved on the phone opens in Finder intact"
