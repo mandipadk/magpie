@@ -1,0 +1,68 @@
+#!/usr/bin/env bash
+# Magpie host firewall. Run as root.
+#   magpie-firewall apply   install the rules (idempotent; runs before magpie-hub starts)
+#   magpie-firewall check   exit 0 only if every rule is in place
+#
+# Inbound: the hub's sync port, TCP and UDP (QUIC), with per-source limits on
+# new connections. Outbound for the magpie user: nothing new at all except its
+# own API on loopback. The hub never dials anyone (no discovery, relays, NAT
+# or upgrades); devices always connect to it.
+set -euo pipefail
+PORT=${MAGPIE_PORT:-22000}
+API_PORT=${MAGPIE_API_PORT:-8385}
+USER_NAME=magpie
+IPT=iptables
+IP6T=ip6tables
+
+rules_in=(
+  "-p tcp --dport $PORT -m hashlimit --hashlimit-above 30/minute --hashlimit-burst 60 --hashlimit-mode srcip --hashlimit-name magpie_tcp -j DROP"
+  "-p tcp --dport $PORT -m connlimit --connlimit-above 32 --connlimit-mask 32 -j REJECT --reject-with tcp-reset"
+  "-p tcp --dport $PORT -j ACCEPT"
+  "-p udp --dport $PORT -m hashlimit --hashlimit-above 60/minute --hashlimit-burst 120 --hashlimit-mode srcip --hashlimit-name magpie_udp -j DROP"
+  "-p udp --dport $PORT -j ACCEPT"
+)
+rules_out=(
+  "-m conntrack --ctstate ESTABLISHED,RELATED -j RETURN"
+  "-d 127.0.0.1/32 -p tcp --dport $API_PORT -j RETURN"
+  "-j REJECT"
+)
+
+apply() {
+  $IPT -N MAGPIE-IN 2>/dev/null || $IPT -F MAGPIE-IN
+  for r in "${rules_in[@]}"; do $IPT -A MAGPIE-IN $r; done
+  $IPT -C INPUT -p tcp --dport "$PORT" -m conntrack --ctstate NEW -j MAGPIE-IN 2>/dev/null \
+    || $IPT -I INPUT 1 -p tcp --dport "$PORT" -m conntrack --ctstate NEW -j MAGPIE-IN
+  $IPT -C INPUT -p udp --dport "$PORT" -j MAGPIE-IN 2>/dev/null \
+    || $IPT -I INPUT 1 -p udp --dport "$PORT" -j MAGPIE-IN
+
+  $IPT -N MAGPIE-OUT 2>/dev/null || $IPT -F MAGPIE-OUT
+  for r in "${rules_out[@]}"; do $IPT -A MAGPIE-OUT $r; done
+  $IPT -C OUTPUT -m owner --uid-owner "$USER_NAME" -j MAGPIE-OUT 2>/dev/null \
+    || $IPT -I OUTPUT 1 -m owner --uid-owner "$USER_NAME" -j MAGPIE-OUT
+
+  # No IPv6 for the hub at all.
+  $IP6T -C INPUT -p tcp --dport "$PORT" -j REJECT 2>/dev/null || $IP6T -I INPUT 1 -p tcp --dport "$PORT" -j REJECT
+  $IP6T -C INPUT -p udp --dport "$PORT" -j REJECT 2>/dev/null || $IP6T -I INPUT 1 -p udp --dport "$PORT" -j REJECT
+  $IP6T -C OUTPUT -m owner --uid-owner "$USER_NAME" -m conntrack --ctstate NEW -j REJECT 2>/dev/null \
+    || $IP6T -I OUTPUT 1 -m owner --uid-owner "$USER_NAME" -m conntrack --ctstate NEW -j REJECT
+  echo "magpie firewall applied (port $PORT)"
+}
+
+check() {
+  local fail=0
+  $IPT -C INPUT -p tcp --dport "$PORT" -m conntrack --ctstate NEW -j MAGPIE-IN 2>/dev/null || { echo "missing: INPUT tcp jump"; fail=1; }
+  $IPT -C INPUT -p udp --dport "$PORT" -j MAGPIE-IN 2>/dev/null || { echo "missing: INPUT udp jump"; fail=1; }
+  $IPT -C OUTPUT -m owner --uid-owner "$USER_NAME" -j MAGPIE-OUT 2>/dev/null || { echo "missing: OUTPUT jump"; fail=1; }
+  for r in "${rules_in[@]}"; do $IPT -C MAGPIE-IN $r 2>/dev/null || { echo "missing in: $r"; fail=1; }; done
+  for r in "${rules_out[@]}"; do $IPT -C MAGPIE-OUT $r 2>/dev/null || { echo "missing out: $r"; fail=1; }; done
+  $IP6T -C OUTPUT -m owner --uid-owner "$USER_NAME" -m conntrack --ctstate NEW -j REJECT 2>/dev/null || { echo "missing: ipv6 outbound reject"; fail=1; }
+  if ss -Htln | awk '{print $4}' | grep -qE "^(0\.0\.0\.0|\*|\[::\]):$API_PORT$"; then echo "the hub's API is listening publicly"; fail=1; fi
+  if [[ $fail == 0 ]]; then echo "magpie firewall: ok"; fi
+  return $fail
+}
+
+case "${1:-}" in
+  apply) apply ;;
+  check) check ;;
+  *) echo "usage: magpie-firewall apply|check" >&2; exit 2 ;;
+esac

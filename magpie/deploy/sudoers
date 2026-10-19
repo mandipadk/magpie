@@ -1,0 +1,4 @@
+# Magpie pipelines (run as ubuntu) may restart the hub, check the firewall and
+# run the hub helper as magpie (status, setup link, devices, remove). Nothing else.
+ubuntu ALL=(root) NOPASSWD: /usr/bin/systemctl restart magpie-hub, /usr/bin/systemctl restart magpie-hubd, /usr/local/sbin/magpie-firewall check
+ubuntu ALL=(magpie) NOPASSWD: /opt/magpie/current/magpie-hubd

@@ -1,0 +1,30 @@
+[Unit]
+Description=Magpie hub helper (admits invited devices)
+After=magpie-hub.service
+BindsTo=magpie-hub.service
+
+[Service]
+User=magpie
+Group=magpie
+ExecStart=/opt/magpie/current/magpie-hubd run --home /var/lib/magpie
+Restart=always
+RestartSec=5
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+ReadWritePaths=/var/lib/magpie
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+ProtectProc=invisible
+RestrictSUIDSGID=yes
+RestrictNamespaces=yes
+LockPersonality=yes
+CapabilityBoundingSet=
+RestrictAddressFamilies=AF_INET AF_UNIX
+UMask=0077
+
+[Install]
+WantedBy=magpie-hub.service
