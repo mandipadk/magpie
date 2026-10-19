@@ -100,8 +100,9 @@ shot "1-join-window"
 ok "Magpie starts on a fresh Mac and asks to join"
 quit_app
 
+# the newest build from before updates were zips: what the owner's Mac runs
 step "2. The previous build, as the owner has it"
-PREV=$(gh release view mac-latest -R "$REPO" --json assets -q '.assets[].name' | grep -E '^Magpie-[0-9]+\.(dmg|zip)$' | grep -oE '[0-9]+' | sort -n -u | awk -v b="$BUILD" '$1 < b' | tail -1)
+PREV=$(gh release view mac-latest -R "$REPO" --json assets -q '.assets[].name' | grep -E '^Magpie-[0-9]+\.dmg$' | grep -oE '[0-9]+' | sort -n -u | awk -v b="$BUILD" '$1 < b' | tail -1)
 [[ -n "$PREV" ]] || fail "no earlier build on the release to update from"
 # Magpie isn't running here, so mounting an image of it is safe.
 if curl -fsSL -o "$OUT/Magpie-$PREV.zip" "$REL/Magpie-$PREV.zip"; then
