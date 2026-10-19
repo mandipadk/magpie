@@ -14,11 +14,10 @@ struct JoinView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            Image(systemName: "icloud")
-                .font(.system(size: 20, weight: .medium))
-                .foregroundStyle(.white)
-                .frame(width: 44, height: 44)
-                .background(Circle().fill(Color.jade))
+            Image("Mark")
+                .resizable()
+                .frame(width: 48, height: 48)
+                .accessibilityHidden(true)
             VStack(alignment: .leading, spacing: 4) {
                 Text("Join your Magpie").font(.title3).fontWeight(.semibold)
                 Text("Paste the link from another of your devices, or the setup link from your server.")

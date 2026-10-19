@@ -35,6 +35,25 @@ waitfor() { # waitfor <seconds> <what> <command...>
 }
 version() { /usr/libexec/PlistBuddy -c "Print :CFBundleVersion" "$APP/Contents/Info.plist"; }
 ui() { osascript -e "tell application \"System Events\" to tell process \"Magpie\" to $1"; }
+# press <window> <button>: SwiftUI nests buttons in groups, so search the window
+press() {
+  osascript - "$1" "$2" <<'AS'
+on run {w, label}
+  tell application "System Events" to tell process "Magpie"
+    set frontmost to true
+    repeat with e in (entire contents of window w)
+      try
+        if role of e is "AXButton" and (name of e is label or description of e is label or title of e is label) then
+          click e
+          return "pressed " & label
+        end if
+      end try
+    end repeat
+  end tell
+  error "no button " & label & " in " & w
+end run
+AS
+}
 quit_app() { osascript -e 'quit app "Magpie"' 2>/dev/null || true; pkill -x Magpie 2>/dev/null || true; sleep 2; }
 install_dmg() { # install_dmg <dmg>
   local mnt; mnt=$(mktemp -d)
@@ -99,7 +118,7 @@ LINK=$(PATH="$PWD:$PATH" "$OUT/bin/magpie-hubd" setup-link --home "$HUB")
 printf '%s' "$LINK" | pbcopy  # the join window takes a link from the clipboard
 open "$APP"
 waitfor 30 "the join window" ui 'get window "Join your Magpie"'
-ui 'click button "Join" of window "Join your Magpie"'
+press "Join your Magpie" "Join"
 CS=""
 findcs() { CS=$(find "$HOME/Library/CloudStorage" -maxdepth 1 -iname 'Magpie*' -print -quit 2>/dev/null); [[ -n "$CS" ]]; }
 waitfor 90 "Magpie in ~/Library/CloudStorage" findcs
@@ -112,8 +131,8 @@ step "4. Mac save -> phone, phone save -> Mac (on demand)"
 echo "Saved on the Mac at $(date -u +%H:%M:%S)" > "$CS/From the Mac.txt"
 open "magpie1:add-device"
 waitfor 30 "Add Device" ui 'get window "Add a Device"'
-waitfor 30 "the invite" ui 'get enabled of button "Copy Link" of window "Add a Device"'
-ui 'click button "Copy Link" of window "Add a Device"'; sleep 1
+sleep 5  # the invite is made when the window opens
+waitfor 30 "Copy Link" press "Add a Device" "Copy Link"; sleep 1
 INVITE=$(pbpaste)
 [[ "$INVITE" == magpie1:join\?* ]] || fail "Add Device didn't copy an invite"
 shot "4-add-device"

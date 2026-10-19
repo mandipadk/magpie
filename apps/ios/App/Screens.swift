@@ -296,13 +296,14 @@ struct JoinView: View {
     var body: some View {
         VStack(spacing: 16) {
             Spacer(minLength: 24)
-            Image(systemName: "icloud")
-                .font(.system(size: 28, weight: .medium))
-                .foregroundStyle(Color.jade)
-                .frame(width: 64, height: 64)
-                .background(Circle().fill(Color.jade.opacity(0.16)))
+            Image("Mark")
+                .resizable()
+                .frame(width: 72, height: 72)
+                .padding(8)
+                .background(RoundedRectangle(cornerRadius: 20, style: .continuous).fill(Color(white: 0.965)))
+                .accessibilityHidden(true)
             Text("Join your Magpie").font(.title3.weight(.semibold))
-            Text("Scan the code on your Mac, under Settings, Devices, Add Device.")
+            Text("On your Mac, click Magpie in the menu bar and choose Add Device…, then scan the code here.")
                 .font(.subheadline).foregroundStyle(.secondary).multilineTextAlignment(.center)
                 .frame(maxWidth: 280)
             CameraArea { code in
