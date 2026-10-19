@@ -26,8 +26,8 @@
   flex: 1;
   display: grid;
   align-content: start;
-  gap: var(--k-space-7);
-  padding: var(--k-space-6) 0 var(--k-space-7);
+  gap: var(--k-space-6);
+  padding: var(--k-space-6) 0 var(--k-space-6);
 }
 
 .mp-hero {
@@ -59,6 +59,12 @@
   min-height: 64px;
 }
 .mp-item--top { align-items: start; }
+/* the section's own rule follows the list; one line is enough */
+.mp-item:last-child { border-bottom: 0; }
+
+/* Remove is there when wanted, not the loudest word in the row */
+.mp-quiet.k-btn { color: var(--k-fg-muted); font-weight: 450; min-height: 44px; }
+.mp-quiet.k-btn:hover, .mp-quiet.k-btn:focus-visible { color: var(--k-fg); }
 
 .mp-item__icon {
   display: grid;
@@ -91,7 +97,6 @@
 
 .mp-foot {
   padding: var(--k-space-4) 0 var(--k-space-6);
-  border-top: var(--k-hair) solid var(--k-line);
 }
 
 @media (max-width: 520px) {

@@ -209,7 +209,7 @@ function Devices({ devices, reload }: { devices: Device[]; reload: () => void })
                 </div>
                 <div className="mp-item__end">
                   <State kind={d.connected ? "live" : "idle"}>{d.connected ? "Online" : "Offline"}</State>
-                  <Button variant="ghost" size="sm" onClick={() => { setProblem(null); setRemoving(d) }}>Remove</Button>
+                  <Button className="mp-quiet" variant="ghost" size="sm" onClick={() => { setProblem(null); setRemoving(d) }}>Remove</Button>
                 </div>
               </li>
             ))}
@@ -247,7 +247,7 @@ function AddDevice({ st, first, reload }: { st: State_; first: boolean; reload: 
           {onMac ? "Opens Add Device in Magpie on this Mac. Scan its code with Magpie on your iPhone." : "On your Mac, open this page and choose Add a device, or choose Add Device… from Magpie in the menu bar."}
         </Statement>
         {onMac && <div><Button variant="ink" onClick={() => (location.href = "magpie1:add-device")}>Add a device</Button></div>}
-        <Text size="caption" tone="subtle">The code carries your encryption key, which only your devices have, so it comes from the Mac and not from this page. If nothing opens, update Magpie on the Mac first.</Text>
+        {onMac && <Text size="caption" tone="subtle">The code carries your encryption key, which only your devices have, so it comes from the Mac and not from this page. If nothing opens, update Magpie on the Mac first.</Text>}
       </section>
     )
 
