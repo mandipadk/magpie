@@ -129,6 +129,14 @@ def testflight(identifier):
     for b in builds.get("data", []):
         a = b["attributes"]
         print(f"build {a['version']}: {a['processingState']}, uploaded {a['uploadedDate'][:16]}, expired {a['expired']}")
+    # uploads that never became builds (processing refused them) show only here
+    for path in (f"/buildUploads?filter[app]={app['id']}&limit=10", f"/apps/{app['id']}/buildUploads?limit=10"):
+        status, ups = call("GET", path)
+        print(f"{path.split('?')[0]}: {status}")
+        if status == 200:
+            for u in ups.get("data", []):
+                print("upload", json.dumps(u.get("attributes", {}))[:600])
+            break
 
     status, groups = call("GET", f"/apps/{app['id']}/betaGroups")
     group = next((g for g in groups.get("data", []) if g["attributes"]["name"] == "Owner"), None)
