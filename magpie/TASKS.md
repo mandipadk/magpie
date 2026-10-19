@@ -6,8 +6,9 @@ Finder and Files. Working copy: chicago:~/code/magpie (pushes to origin = github
 public, and frankfurt:~/code/magpie). Page: https://magpie.mandip.dev (private, magpie/page).
 
 ## Waiting on the owner
-- [ ] iPhone (app already installed): page > Add a device on the Mac (or menu bar > Add Device…),
-      scan with Magpie on the iPhone; then save on Mac -> Files on the phone. See SCOPE.md.
+- [ ] iPhone (app already installed; TestFlight build 35 or newer, not 27-32): after the Mac update,
+      page > Add a device on the Mac (or menu bar > Add Device…), scan with Magpie on the iPhone;
+      then save on Mac -> Files on the phone. See SCOPE.md.
 
 ## CRITICAL: update from build 10 to 22 hung at Extracting (owner, 2026-10-19 ~15:00)
 - Owner's assistant: build 22's dmg and signature are fine; mounting it with hdiutil on that Mac hung
@@ -19,7 +20,16 @@ public, and frankfurt:~/code/magpie). Page: https://magpie.mandip.dev (private, 
 - [x] One engine per device's files (flock); a second extension copy gets ErrBusy (TestDataDirLock)
 - [x] Gate: CI publishes appcast-candidate.xml; the e2e job updates a running, joined build 25
       (last dmg build) with it and only then makes it appcast.xml
-- [ ] e2e green on that path, then the live appcast; then the owner checks for updates
+- [x] e2e green on that path (run 39294365848: build 25 running and joined, Sparkle to 36 from the
+      zip, then Add Device, Mac <-> phone, on-demand open, conflict in the menu bar); the gate made
+      build 36 the live appcast (~17:40 UTC)
+- [x] Found on the way: the one-process lock (my change, builds 27-32) locked out macOS's second
+      extension process, so the updated Mac's engine never opened; removed (build 33+). Add Device
+      said "isn't reachable" when opened before the app connected; it now waits. A restored join
+      window showed on a joined Mac after an update; now closes
+- [ ] Owner: Check for Updates on the Mac (build 10 -> 36), then the page's Add a device
+- Open: macOS runs the extension in two processes, each opening the engine on the same files.
+  Worked for hours on the owner's Mac; needs one engine owner per device (design, not a lock)
 - Not known: what exactly froze the Mac (no access to it). Not repeated on purpose.
 
 ## Critic round (2026-10-19, 14:00) and the owner's page correction
