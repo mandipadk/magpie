@@ -1,55 +1,22 @@
 #!/usr/bin/env python3
-"""Draws Magpie's app icon: an ink squircle, a white cloud, and a long jade
-tail (the magpie's) sweeping out of it. Writes the macOS and iOS icon sets.
+"""Draws Magpie's app icon: the magpie from magpie.svg (ink, white belly, jade
+wing) perched on a white tile. Writes the macOS and iOS icon sets.
 
-    python3 apps/art/icon.py
+    python3 apps/art/icon.py      (needs rsvg-convert)
 """
-import json, math, pathlib
+import io, json, pathlib, subprocess
 from PIL import Image, ImageDraw, ImageFilter
 
 S = 1024
 HERE = pathlib.Path(__file__).parent
-INK = (14, 14, 15)
-WHITE = (246, 246, 244)
+TILE = (246, 246, 244)
 JADE = (47, 156, 114)
 
 
-def squircle_mask(size, inset, n=5.0):
-    m = Image.new("L", (size, size), 0)
-    px = m.load()
-    c = size / 2
-    r = c - inset
-    for y in range(size):
-        for x in range(size):
-            dx, dy = abs(x + 0.5 - c) / r, abs(y + 0.5 - c) / r
-            v = dx ** n + dy ** n
-            if v <= 1:
-                px[x, y] = 255
-    return m
-
-
-def art(scale=4):
-    W = S * scale
-    img = Image.new("RGBA", (W, W), (0, 0, 0, 0))
-    d = ImageDraw.Draw(img)
-    k = W / 1024
-    # tail: the magpie's long tail, a tapering wedge out of the cloud's
-    # lower right toward the corner
-    x0, y0, x1, y1 = 640, 600, 850, 800
-    for i in range(400):
-        t = i / 399
-        x = x0 + (x1 - x0) * t
-        y = y0 + (y1 - y0) * t + 30 * math.sin(math.pi * t)
-        w = (44 - 34 * t) * k
-        d.ellipse([x * k - w, y * k - w, x * k + w, y * k + w], fill=JADE)
-    # cloud: three circles on a rounded base
-    def circ(cx, cy, r):
-        d.ellipse([(cx - r) * k, (cy - r) * k, (cx + r) * k, (cy + r) * k], fill=WHITE)
-    circ(372, 520, 128)
-    circ(530, 440, 170)
-    circ(668, 540, 116)
-    d.rounded_rectangle([244 * k, 520 * k, 784 * k, 656 * k], radius=68 * k, fill=WHITE)
-    return img.resize((S, S), Image.LANCZOS)
+def art(size):
+    png = subprocess.run(["rsvg-convert", "-w", str(size), "-h", str(size), str(HERE / "magpie.svg")],
+                         check=True, capture_output=True).stdout
+    return Image.open(io.BytesIO(png)).convert("RGBA")
 
 
 def mac_icon():
@@ -62,18 +29,18 @@ def mac_icon():
     shadow.paste((0, 0, 0, 110), (0, 0), mask)
     shadow = shadow.transform((S, S), Image.AFFINE, (1, 0, 0, 0, 1, -12)).filter(ImageFilter.GaussianBlur(18))
     base.alpha_composite(shadow)
-    tile = Image.new("RGBA", (S, S), INK + (255,))
+    tile = Image.new("RGBA", (S, S), TILE + (255,))
     base.paste(tile, (0, 0), mask)
-    a = art().resize((S - 2 * inset - 40, S - 2 * inset - 40), Image.LANCZOS)
-    base.alpha_composite(a, (inset + 20, inset + 20))
+    a = art(S - 2 * inset - 120)
+    base.alpha_composite(a, (inset + 60, inset + 60))
     return base
 
 
 def ios_icon():
     # iOS: full-bleed square, the system rounds it
-    base = Image.new("RGBA", (S, S), INK + (255,))
-    a = art().resize((880, 880), Image.LANCZOS)
-    base.alpha_composite(a, (72, 72))
+    base = Image.new("RGBA", (S, S), TILE + (255,))
+    a = art(800)
+    base.alpha_composite(a, (112, 112))
     return base.convert("RGB")
 
 

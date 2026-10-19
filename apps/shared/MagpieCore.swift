@@ -20,6 +20,12 @@ enum Magpie {
     /// Finder's "Version History…" asks the app (Mac): the path goes in the
     /// shared defaults under this key, then a Darwin notification of this name.
     static let historyRequest = "dev.mandip.magpie.history"
+    /// Opens version history in the app; the Magpie page links to it.
+    static let historyLink = "magpie1:history"
+    /// Opens Add Device (the Mac's invite window).
+    static let addDeviceLink = "magpie1:add-device"
+    /// The owner's Magpie page: the server's status, and removing devices.
+    static let pageURL = URL(string: "https://magpie.mandip.dev")!
     /// Who may connect to the extension's service (Mac): only the Magpie app,
     /// signed by this team. Invites carry the folder's password and invite key.
     /// apps/mac/check-app.sh checks the shipped app against it.

@@ -8,6 +8,7 @@ import SwiftUI
 @main
 #endif
 struct MagpieApp: App {
+    @NSApplicationDelegateAdaptor private var links: LinkDelegate
     @StateObject private var model = AppModel()
     @StateObject private var history = HistoryRequests()
     private let updater = SPUStandardUpdaterController(startingUpdater: true, updaterDelegate: nil, userDriverDelegate: nil)
@@ -64,6 +65,18 @@ struct MagpieApp: App {
     }
 }
 
+/// magpie1: links. A history link (from the Magpie page) opens Settings at
+/// History; a join link opens the join window with it filled in.
+final class LinkDelegate: NSObject, NSApplicationDelegate {
+    static let open = Notification.Name("dev.mandip.magpie.link")
+
+    func application(_ application: NSApplication, open urls: [URL]) {
+        for url in urls where url.scheme == "magpie1" {
+            NotificationCenter.default.post(name: Self.open, object: url.absoluteString)
+        }
+    }
+}
+
 /// The menu bar icon. It is drawn at launch, so it also opens the first-run
 /// window when this Mac hasn't joined a Magpie yet.
 struct MenuLabel: View {
@@ -71,9 +84,23 @@ struct MenuLabel: View {
     @EnvironmentObject private var model: AppModel
     @EnvironmentObject private var history: HistoryRequests
     @Environment(\.openWindow) private var openWindow
+    @Environment(\.openSettings) private var openSettings
 
     var body: some View {
         Image(systemName: symbol)
+            .onReceive(NotificationCenter.default.publisher(for: LinkDelegate.open)) { note in
+                guard let link = note.object as? String else { return }
+                if link == Magpie.historyLink, model.joined {
+                    model.showHistory = true
+                    openSettings()
+                } else if link == Magpie.addDeviceLink, model.joined {
+                    openWindow(id: "add-device")
+                } else if link.hasPrefix("magpie1:join?"), !model.joined {
+                    UserDefaults.standard.set(link, forKey: "pendingJoinLink")
+                    openWindow(id: "join")
+                }
+                NSApp.activate(ignoringOtherApps: true)
+            }
             .accessibilityLabel("Magpie, \(model.headline)")
             .onReceive(history.$path.compactMap { $0 }) { path in
                 history.path = nil

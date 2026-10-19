@@ -24,6 +24,8 @@ on:
     paths:
       - apps/**
       - lib/magpie/**
+      - cmd/magpie-hubd/**
+      - cmd/magpie-phone/**
       - .github/workflows/magpie-apple.yml
 
 concurrency:

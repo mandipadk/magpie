@@ -48,7 +48,10 @@ struct JoinView: View {
         .padding(24)
         .frame(width: 460)
         .onAppear {
-            if let s = NSPasteboard.general.string(forType: .string), s.hasPrefix("magpie1:") { link = s }
+            if let s = UserDefaults.standard.string(forKey: "pendingJoinLink") {
+                link = s
+                UserDefaults.standard.removeObject(forKey: "pendingJoinLink")
+            } else if let s = NSPasteboard.general.string(forType: .string), s.hasPrefix("magpie1:") { link = s }
         }
         .onChange(of: model.joined) { _, joined in
             if joined {
@@ -183,6 +186,10 @@ struct SettingsView: View {
         }
         .frame(width: 520)
         .environmentObject(model)
+        .onReceive(model.$showHistory.filter { $0 }) { _ in
+            tab = .history
+            model.showHistory = false
+        }
     }
 }
 
@@ -236,6 +243,12 @@ private struct DevicesTab: View {
                                 Text(d.Name)
                                 Text(d.ThisOne ? "This Mac" : d.Hub ? "Server. Holds everything encrypted and can't read it." : "Syncs through Frankfurt")
                                     .font(.caption).foregroundStyle(.secondary)
+                            }
+                        }
+                        .contextMenu {
+                            if !d.ThisOne && !d.Hub {
+                                // The server decides who's in, so removal happens on the page.
+                                Button("Remove on the Magpie Page…") { NSWorkspace.shared.open(Magpie.pageURL) }
                             }
                         }
                     }

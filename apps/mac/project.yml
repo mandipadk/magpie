@@ -44,6 +44,9 @@ targets:
         ITSAppUsesNonExemptEncryption: false
         # a menu bar app: no Dock icon
         LSUIElement: true
+        CFBundleURLTypes:
+          - CFBundleURLName: dev.mandip.magpie.link
+            CFBundleURLSchemes: [magpie1]
         NSHumanReadableCopyright: Magpie, built on Syncthing. MPL 2.0.
         SUFeedURL: https://github.com/mandipadk/magpie/releases/download/mac-latest/appcast.xml
         SUPublicEDKey: rON8JF21MYg0RuFqEM5a/juUpiFBo0J22UVSVDP0LXw=

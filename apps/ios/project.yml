@@ -37,7 +37,7 @@ targets:
         ITSAppUsesNonExemptEncryption: false
         # magpie1: links join this iPhone
         CFBundleURLTypes:
-          - CFBundleURLName: dev.mandip.magpie.join
+          - CFBundleURLName: dev.mandip.magpie.link
             CFBundleURLSchemes: [magpie1]
     entitlements:
       path: App/Magpie.entitlements

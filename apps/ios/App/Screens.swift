@@ -64,6 +64,7 @@ struct HomeView: View {
                     .presentationDragIndicator(.visible)
             }
             .refreshable { model.refresh() }
+            .navigationDestination(isPresented: $model.showHistory) { HistoryBrowser() }
         }
     }
 

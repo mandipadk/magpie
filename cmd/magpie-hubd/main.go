@@ -479,6 +479,9 @@ func (h *hub) remove(id string) error {
 	if err := h.api("GET", "/rest/system/status", nil, &st); err != nil {
 		return err
 	}
+	if devID == protocol.EmptyDeviceID {
+		return errors.New("that isn't a device ID")
+	}
 	if devID.String() == st.MyID {
 		return errors.New("that is the hub itself")
 	}

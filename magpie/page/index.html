@@ -7,7 +7,7 @@
 <link rel="icon" href="icon.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400;14..32,500;14..32,600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400;14..32,500;14..32,600;14..32,700&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js"></script>
 <style>
 :root{
@@ -28,14 +28,14 @@
 html{-webkit-text-size-adjust:100%}
 body{margin:0;background:var(--page);color:var(--ink);font:400 15px/1.5 Inter,sans-serif;-webkit-font-smoothing:antialiased;font-feature-settings:"tnum" 1}
 .i{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.75;stroke-linecap:round;stroke-linejoin:round;flex:none}
-.wrap{max-width:640px;margin:0 auto;padding:40px 16px 96px}
+.wrap{max-width:640px;margin:0 auto;padding:40px 16px 32px}
 header{display:flex;gap:16px;align-items:center;margin-bottom:8px}
-header img{width:56px;height:56px;flex:none}
-h1{font-size:28px;line-height:1.1;font-weight:600;letter-spacing:-.03em;margin:0}
-.lede{color:var(--ink-2);margin:16px 0 0}
+header img{width:64px;height:64px;flex:none;border-radius:15px;box-shadow:0 0 0 1px var(--rule)}
+h1{font-size:40px;line-height:1;font-weight:700;letter-spacing:-.045em;margin:0;font-variation-settings:"opsz" 32}
+.lede{color:var(--ink-2);margin:24px 0 0;font-size:17px;line-height:1.45;max-width:30em}
 [hidden]{display:none!important}
 .sample{display:inline-block;margin-top:16px;font-size:13px;color:var(--ink-2);border:1px solid var(--rule);border-radius:6px;padding:4px 8px}
-h2{font-size:17px;line-height:1.3;font-weight:600;letter-spacing:-.01em;margin:48px 0 8px}
+h2{font-size:22px;line-height:1.2;font-weight:700;letter-spacing:-.025em;margin:48px 0 16px;font-variation-settings:"opsz" 32}
 p{margin:0}
 .note{color:var(--ink-2);font-size:14px}
 .state{display:flex;gap:8px;align-items:flex-start;margin:0 0 8px}
@@ -47,7 +47,16 @@ p{margin:0}
 .row{display:flex;align-items:center;gap:16px;min-height:48px;padding:8px 0;border-bottom:1px solid var(--rule)}
 .row .k{flex:1;min-width:0}
 .row .v{color:var(--ink-2);text-align:right}
-.row .k small{display:block;color:var(--ink-2);font-size:13px}
+.row .k small{display:block;color:var(--ink-2);font-size:13px;font-weight:400}
+.row .k.title{font-weight:600}
+.row .v a,.link{color:var(--ink);text-decoration:underline;text-underline-offset:3px;text-decoration-color:var(--rule)}
+.row .v small{display:block;font-size:13px}
+.rm{font:500 14px/1 Inter,sans-serif;color:var(--ink-2);background:none;border:0;min-height:44px;padding:0 0 0 16px;cursor:pointer}
+.rm:hover{color:var(--warn)}
+.confirm{padding:16px 0;border-bottom:1px solid var(--rule)}
+.confirm p{margin-bottom:16px}
+.confirm .acts{display:flex;gap:8px}
+.btn.danger{background:var(--warn);color:var(--on-ink)}
 .row>.i{color:var(--ink-2)}
 .btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:44px;padding:0 16px;border-radius:8px;font:500 14px/1 Inter,sans-serif;text-decoration:none;cursor:pointer;border:1px solid transparent;white-space:nowrap}
 .btn.ink{background:var(--ink);color:var(--on-ink)}
@@ -63,7 +72,7 @@ p{margin:0}
 .field{display:flex;gap:8px;margin:8px 0}
 .field input{flex:1;min-width:0;height:44px;border:1px solid var(--rule);border-radius:8px;background:var(--field);color:var(--ink);font:400 13px/1 Inter,sans-serif;padding:0 16px}
 .err{color:var(--warn);font-size:14px;margin-top:8px}
-footer{margin-top:64px;display:flex;justify-content:space-between;align-items:center;gap:16px;color:var(--ink-3);font-size:13px}
+footer{margin-top:40px;display:flex;justify-content:space-between;align-items:center;gap:16px;color:var(--ink-3);font-size:13px}
 footer button{font:inherit;color:inherit;background:none;border:0;min-height:44px;min-width:44px;padding:0 8px;margin-right:-8px;cursor:pointer;text-decoration:underline;text-underline-offset:3px}
 @media (max-width:520px){
   .made.on{flex-direction:column}
@@ -87,12 +96,12 @@ footer button{font:inherit;color:inherit;background:none;border:0;min-height:44p
   <div class="rows">
     <div class="row">
       <svg class="i" viewBox="0 0 24 24"><path d="M18 5a2 2 0 0 1 2 2v8.526a2 2 0 0 0 .212.897l1.068 2.127a1 1 0 0 1-.9 1.45H3.62a1 1 0 0 1-.9-1.45l1.068-2.127A2 2 0 0 0 4 15.526V7a2 2 0 0 1 2-2z"/><path d="M20.054 15.987H3.946"/></svg>
-      <div class="k">Mac<small id="mac-note">macOS 14 or later</small></div>
+      <div class="k title">Mac<small id="mac-note">macOS 14 or later</small></div>
       <span id="mac-act" class="muted">Checking</span>
     </div>
     <div class="row">
       <svg class="i" viewBox="0 0 24 24"><rect width="14" height="20" x="5" y="2" rx="2" ry="2"/><path d="M12 18h.01"/></svg>
-      <div class="k">iPhone<small id="ios-note">iOS 17 or later, through TestFlight</small></div>
+      <div class="k title">iPhone<small id="ios-note">iOS 17 or later, through TestFlight</small></div>
       <span id="ios-act" class="muted">Checking</span>
     </div>
   </div>
@@ -100,6 +109,7 @@ footer button{font:inherit;color:inherit;background:none;border:0;min-height:44p
   <h2 id="setup-title">Set up your first device</h2>
   <div id="setup">
     <p class="note" id="setup-note"></p>
+    <div class="setup" id="add-open" hidden><a class="btn ink" href="magpie1:add-device">Add a device</a></div>
     <div class="setup"><button class="btn ink" id="make">Make a setup link</button></div>
     <div class="made" id="made">
       <div class="qr" id="qr" aria-label="Setup link as a QR code"></div>
@@ -144,6 +154,12 @@ const ago = (iso) => {
 const plural = (n, one, many) => `${n.toLocaleString()} ${n === 1 ? one : many}`;
 const span = (s) => s < 3600 ? plural(Math.max(1, Math.round(s / 60)), "minute", "minutes") : s < 86400 * 2 ? plural(Math.round(s / 3600), "hour", "hours") : plural(Math.round(s / 86400), "day", "days");
 
+let confirming = null, last = null;
+const post = (path, body) => fetch(path, { method: "POST", headers: { "Content-Type": "application/json", "X-Magpie": "1" }, body: JSON.stringify(body || {}) }).then((r) => r.json());
+
+// iPads also say Macintosh; they have touch.
+const onMac = /Macintosh/.test(navigator.userAgent) && navigator.maxTouchPoints < 2;
+
 function renderServer(st) {
   const h = st.hub;
   if (!h || h.error) {
@@ -157,13 +173,19 @@ function renderServer(st) {
       : `<div class="state ok">${ICON.ok}<p><b>Running and reachable</b></p></div>`;
   const devs = h.devices || [];
   const devRows = devs.length
-    ? devs.map((d) => `<div class="row"><div class="k">${esc(d.name || d.id.slice(0, 7))}</div><span class="v">${d.connected ? "Connected" : "Seen " + ago(d.lastSeen)}</span></div>`).join("")
+    ? devs.map((d) => confirming === d.id
+      ? `<div class="confirm"><p><b>Remove ${esc(d.name || "this device")}?</b><br><span class="note">It stops syncing at once and can't come back, even with an invite it makes itself. Files already on it stay there.</span></p>
+          <div class="acts"><button class="btn danger" data-remove="${esc(d.id)}">Remove</button><button class="btn line" data-cancel>Cancel</button></div></div>`
+      : `<div class="row"><div class="k">${esc(d.name || d.id.slice(0, 7))}</div><span class="v">${d.connected ? "Connected" : "Seen " + ago(d.lastSeen)}</span><button class="rm" data-ask="${esc(d.id)}" aria-label="Remove ${esc(d.name || "device")}">Remove</button></div>`).join("")
     : `<div class="row"><div class="k note">No devices yet</div></div>`;
+  const kept = h.historyFiles
+    ? `${plural(h.historyFiles, "version", "versions")}, ${bytes(h.historyBytes)}${h.historyLatest ? `<small>Last kept ${ago(h.historyLatest)}</small>` : ""}`
+    : `None yet<small>Kept when a file changes or is deleted</small>`;
   $("server").innerHTML = `${state}
     <div class="rows">
       <div class="row"><div class="k">Files</div><span class="v">${h.files.toLocaleString()}</span></div>
       <div class="row"><div class="k">Stored, encrypted</div><span class="v">${bytes(h.bytes)}</span></div>
-      <div class="row"><div class="k">Older versions kept</div><span class="v">${h.historyFiles ? `${plural(h.historyFiles, "version", "versions")}, ${bytes(h.historyBytes)}` : "None yet"}</span></div>
+      <div class="row"><div class="k">Older versions<small><a class="link" href="magpie://history">Browse in Magpie</a></small></div><span class="v">${kept}</span></div>
       <div class="row"><div class="k">Running for</div><span class="v">${span(h.uptimeS)}</span></div>
     </div>
     <h2>Devices</h2>
@@ -172,7 +194,10 @@ function renderServer(st) {
   $("setup-title").textContent = first ? "Set up your first device" : "Add a device";
   $("setup-note").textContent = first
     ? "Paste this link into Magpie, or scan it with your iPhone. It works once, for 15 minutes. This first device makes the encryption key; add the rest from Magpie on that device."
-    : "On your Mac, click Magpie in the menu bar and choose Add Device…, then scan the code with the iPhone. New devices need the encryption key, and only your devices have it.";
+    : onMac
+      ? "Opens Add Device in Magpie on this Mac, with a code to scan from Magpie on your iPhone (tap Join). The code carries your encryption key, which only your devices have, so it has to come from the Mac rather than this page."
+      : "Open this page on your Mac and choose Add a device, or click Magpie in the Mac's menu bar and choose Add Device…. The code carries your encryption key, which only your devices have, so it has to come from the Mac.";
+  $("add-open").hidden = first || !onMac;
   $("make").parentElement.hidden = !first;
   if (!first) $("made").classList.remove("on");
   // A setup link only helps once the server is reachable and there's an app to paste it into.
@@ -188,16 +213,20 @@ function renderApps(st) {
   } else {
     $("mac-act").textContent = "First build on its way";
   }
+  const onPhone = /iPhone|iPad/.test(navigator.userAgent);
   if (st.iphone) {
-    $("ios-note").textContent = "In TestFlight as Space: Magpie, iOS 17 or later";
-    $("ios-act").outerHTML = `<a class="btn line" id="ios-act" href="${esc(st.iphone.url)}">Get TestFlight</a>`;
+    $("ios-note").textContent = "Open TestFlight on your iPhone; Magpie is waiting there. iOS 17 or later.";
+    $("ios-act").outerHTML = onPhone
+      ? `<a class="btn line" id="ios-act" href="itms-beta://">Open TestFlight</a>`
+      : `<span id="ios-act" hidden></span>`;
+  } else {
+    $("ios-act").textContent = "On TestFlight soon";
   }
-  else $("ios-act").textContent = "On TestFlight soon";
 }
 
 async function load() {
   try {
-    const st = await (await fetch("api/state")).json();
+    const st = last = await (await fetch("api/state")).json();
     $("sample").hidden = !st.sample;
     renderServer(st);
     renderApps(st);
@@ -210,7 +239,7 @@ async function load() {
 $("make").onclick = async () => {
   $("make").disabled = true; $("setup-err").hidden = true;
   try {
-    const r = await (await fetch("api/setup-link", { method: "POST" })).json();
+    const r = await post("api/setup-link");
     if (!r.link) throw new Error(r.error || "No link came back.");
     $("link").value = r.link;
     const q = qrcode(0, "M"); q.addData(r.link); q.make();
@@ -227,6 +256,27 @@ $("copy").onclick = async () => {
   try { await navigator.clipboard.writeText($("link").value); } catch { $("link").select(); document.execCommand("copy"); }
   $("copy").querySelector("span").textContent = "Copied";
   setTimeout(() => ($("copy").querySelector("span").textContent = "Copy"), 1600);
+};
+
+$("server").onclick = async (ev) => {
+  const b = ev.target.closest("button");
+  if (!b) return;
+  if (b.dataset.ask) confirming = b.dataset.ask;
+  if (b.dataset.cancel !== undefined) confirming = null;
+  if (b.dataset.remove) {
+    b.disabled = true; b.textContent = "Removing…";
+    try {
+      const r = await post("api/remove", { id: b.dataset.remove });
+      if (r.error) throw new Error(r.error);
+      confirming = null;
+      return load();
+    } catch (e) {
+      b.disabled = false; b.textContent = "Remove";
+      b.closest(".confirm").querySelector(".note").textContent = `Couldn't remove it: ${e.message}`;
+      return;
+    }
+  }
+  if (last) renderServer(last);
 };
 
 const root = document.documentElement;

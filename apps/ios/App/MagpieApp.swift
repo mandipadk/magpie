@@ -23,7 +23,12 @@ struct MagpieApp: App {
             // the simulator ignores appearance set from the test runner.
             .preferredColorScheme(ProcessInfo.processInfo.environment["MAGPIE_SAMPLE_DARK"] == "1" ? .dark : nil)
             .onOpenURL { url in
-                guard url.scheme == "magpie1", !model.joined else { return }
+                guard url.scheme == "magpie1" else { return }
+                if url.absoluteString == Magpie.historyLink {
+                    model.showHistory = model.joined
+                    return
+                }
+                guard !model.joined else { return }
                 Task { await model.join(link: url.absoluteString, deviceName: AppModel.deviceName) }
             }
             .onChange(of: phase) { _, p in

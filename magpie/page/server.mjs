@@ -22,7 +22,7 @@ const HUBD = ["frankfurt", "sudo", "-n", "-u", "magpie", "/opt/magpie/current/ma
 
 function hubd(...args) {
   return new Promise((resolve, reject) => {
-    execFile("ssh", [...HUBD, ...args, "--home", "/var/lib/magpie"], { timeout: 15000 }, (err, out, errOut) => {
+    execFile("ssh", [...HUBD, args[0], "--home", "/var/lib/magpie", ...args.slice(1)], { timeout: 15000 }, (err, out, errOut) => {
       if (err) reject(new Error((errOut || err.message).trim().split("\n").pop()));
       else resolve(out.trim());
     });
@@ -66,6 +66,15 @@ async function macRelease() {
 }
 
 let cache = { at: 0, value: null };
+
+function body(req) {
+  return new Promise((resolve, reject) => {
+    let data = "";
+    req.on("data", (c) => { data += c; if (data.length > 4096) req.destroy(); });
+    req.on("end", () => resolve(data));
+    req.on("error", reject);
+  });
+}
 async function state() {
   if (SAMPLE) return sample();
   if (Date.now() - cache.at < 10000 && cache.value) return cache.value;
@@ -92,10 +101,10 @@ function sample() {
     open: true,
     hub: {
       hubID: "SAMPLE", version: "v2.1.7-magpie", uptimeS: 9 * 86400, encrypted: true,
-      files: 1284, bytes: 6650000000, historyBytes: 412000000, historyFiles: 96, folderErrors: 0,
+      files: 1284, bytes: 6650000000, historyBytes: 412000000, historyFiles: 96, historyLatest: ago(40), folderErrors: 0,
       devices: [
-        { id: "A", name: "MacBook Air", connected: true, lastSeen: ago(0), client: "magpie" },
-        { id: "B", name: "iPhone", connected: false, lastSeen: ago(12), client: "magpie" },
+        { id: "SAMPLEA-AAAAAAA-AAAAAAA-AAAAAAA-AAAAAAA-AAAAAAA-AAAAAAA-AAAAAAA", name: "MacBook Air", connected: true, lastSeen: ago(0), client: "magpie" },
+        { id: "SAMPLEB-BBBBBBB-BBBBBBB-BBBBBBB-BBBBBBB-BBBBBBB-BBBBBBB-BBBBBBB", name: "iPhone", connected: false, lastSeen: ago(12), client: "magpie" },
       ],
     },
     mac: { url: DMG, version: "1.0 (14)", size: 9400000, updated: ago(60 * 26) },
@@ -113,6 +122,17 @@ http.createServer(async (req, res) => {
   };
   try {
     if (req.method === "GET" && url.pathname === "/api/state") return send(200, await state());
+    // Changes need the page's own header, which another site can't send
+    // without a CORS preflight this server never answers.
+    if (req.method === "POST" && req.headers["x-magpie"] !== "1") return send(403, { error: "not from this page" });
+    if (req.method === "POST" && url.pathname === "/api/remove") {
+      const { id } = JSON.parse((await body(req)) || "{}");
+      if (!/^[A-Z2-7]{7}(-[A-Z2-7]{7}){7}$/.test(id || "")) return send(400, { error: "that isn't a device ID" });
+      if (SAMPLE) return send(200, { ok: true });
+      await hubd("remove", id);
+      cache = { at: 0, value: null };
+      return send(200, { ok: true });
+    }
     if (req.method === "POST" && url.pathname === "/api/setup-link") {
       if (SAMPLE) return send(200, { link: "magpie1:join?a=203.0.113.7%3A22000&f=magpie&h=SAMPLE-SAMPLE-SAMPLE-SAMPLE&k=c2FtcGxlLWtleQ&t=c2FtcGxlLXRva2Vu", expires: new Date(Date.now() + 15 * 60000).toISOString() });
       const link = await hubd("setup-link");

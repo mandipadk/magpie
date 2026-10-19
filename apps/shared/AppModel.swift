@@ -13,6 +13,8 @@ final class AppModel: ObservableObject {
     @Published private(set) var kept: [String] = []
     @Published private(set) var reachable = false
     @Published var problem: String?
+    /// Set by a magpie1:history link (the Magpie page's "Browse in Magpie").
+    @Published var showHistory = false
 
     private var proxy: MagpieService?
     private var connection: NSXPCConnection?
