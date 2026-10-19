@@ -27,7 +27,7 @@ echo "$A" | grep -q 'UK74VYMUP7.dev.mandip.magpie.shared' || bad "the app lacks 
 
 for target in "$APP" "$EXT" "$APP/Contents/Frameworks/Sparkle.framework"; do
   codesign --verify --strict --deep "$target" 2>&1 || bad "signature check failed: $target"
-  info=$(codesign -dv "$target" 2>&1)
+  info=$(codesign -dvv "$target" 2>&1)
   echo "$info" | grep -q "Authority=Developer ID Application" || bad "not signed with Developer ID: $target"
   echo "$info" | grep -q "flags=.*runtime" || bad "no hardened runtime: $target"
 done
