@@ -191,7 +191,7 @@ jobs:
           fi
           # The ticket can take a moment to reach Apple's CDN, and the lookup sometimes drops.
           for i in 1 2 3 4 5 6; do xcrun stapler staple "$RUNNER_TEMP/Magpie.dmg" && break; [[ $i == 6 ]] && exit 1; sleep 20; done
-          xcrun stapler validate "$RUNNER_TEMP/Magpie.dmg"
+          for i in 1 2 3 4 5 6; do xcrun stapler validate "$RUNNER_TEMP/Magpie.dmg" && break; [[ $i == 6 ]] && exit 1; sleep 20; done
           spctl --assess --type open --context context:primary-signature -vv "$RUNNER_TEMP/Magpie.dmg"
           # and the app exactly as the owner gets it, from the stapled disk image
           MNT=$(mktemp -d)
@@ -414,9 +414,11 @@ jobs:
           # altool finds the API key by name in ~/.appstoreconnect/private_keys
           mkdir -p ~/.appstoreconnect/private_keys
           cp "$RUNNER_TEMP/keys/AuthKey_$ASC_KEY_ID.p8" ~/.appstoreconnect/private_keys/
+          # altool can exit 0 after a failed upload, so read what it says.
           xcrun altool --upload-app -f "$RUNNER_TEMP/export/Magpie.ipa" -t ios \
-            --apiKey "$ASC_KEY_ID" --apiIssuer "$ASC_ISSUER_ID" --output-format normal
+            --apiKey "$ASC_KEY_ID" --apiIssuer "$ASC_ISSUER_ID" --output-format normal 2>&1 | tee "$RUNNER_TEMP/upload.log"
           rm -rf ~/.appstoreconnect/private_keys
+          if grep -q "UPLOAD FAILED\|Failed to upload" "$RUNNER_TEMP/upload.log"; then echo "::error::TestFlight upload failed"; exit 1; fi
       - name: Clean up the key
         if: always()
         run: rm -rf "$RUNNER_TEMP/keys"

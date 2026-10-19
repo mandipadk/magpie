@@ -72,6 +72,9 @@ targets:
           NSExtensionPointIdentifier: com.apple.fileprovider-nonui
           NSExtensionPrincipalClass: $(PRODUCT_MODULE_NAME).FileProviderExtension
           NSExtensionFileProviderSupportsEnumeration: true
+          # App Store validation requires the key; the engine itself lives in the
+          # extension's own container (see Magpie.containerURL).
+          NSExtensionFileProviderDocumentGroup: group.dev.mandip.magpie
           NSExtensionFileProviderActions:
             - NSExtensionFileProviderActionIdentifier: dev.mandip.magpie.keep
               NSExtensionFileProviderActionName: Keep Downloaded
