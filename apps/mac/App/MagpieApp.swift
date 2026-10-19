@@ -38,7 +38,7 @@ struct MagpieApp: App {
         .windowResizability(.contentSize)
 
         Window("Add a Device", id: "add-device") {
-            AddDeviceSheet()
+            AddDeviceSheet(heading: false)
                 .environmentObject(model)
         }
         .windowResizability(.contentSize)

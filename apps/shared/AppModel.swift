@@ -250,6 +250,7 @@ final class AppModel: ObservableObject {
             return reachable ? "Can't reach Frankfurt" : "Starting"
         }
         if !status.Accepted { return "Waiting for the server" }
+        if !conflicts.isEmpty { return conflicts.count == 1 ? "1 file needs you" : "\(conflicts.count) files need you" }
         if status.UploadsLeft > 0 { return status.UploadsLeft == 1 ? "Sending 1 file" : "Sending \(status.UploadsLeft) files" }
         if !status.Ready { return "Catching up" }
         return "Up to date"

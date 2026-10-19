@@ -277,6 +277,8 @@ private struct DevicesTab: View {
 }
 
 struct AddDeviceSheet: View {
+    /// A sheet has no title bar, so it shows its own heading; the window doesn't.
+    var heading = true
     @EnvironmentObject private var model: AppModel
     @Environment(\.dismiss) private var dismiss
     @State private var link: String?
@@ -289,7 +291,7 @@ struct AddDeviceSheet: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             VStack(alignment: .leading, spacing: 4) {
-                Text("Add a device").font(.headline)
+                if heading { Text("Add a Device").font(.headline) }
                 Text("On your iPhone, open Magpie, tap Join and scan this code.").foregroundStyle(.secondary)
             }
             Group {
@@ -297,7 +299,7 @@ struct AddDeviceSheet: View {
                     Image(nsImage: image)
                         .interpolation(.none)
                         .resizable()
-                        .frame(width: 168, height: 168)
+                        .frame(width: 200, height: 200)
                         .padding(16)
                         .background(RoundedRectangle(cornerRadius: 8).fill(.white))
                 } else if let problem {

@@ -84,7 +84,7 @@ struct MenuPanel: View {
     private var header: some View {
         HStack(spacing: 10) {
             ZStack {
-                Circle().fill(model.status.Paused ? Color.secondary.opacity(0.4) : Color.jade)
+                Circle().fill(model.status.Paused ? Color.secondary.opacity(0.4) : model.conflicts.isEmpty ? Color.jade : Color.orange)
                 Image(systemName: headerSymbol)
                     .font(.system(size: 14, weight: .semibold))
                     .foregroundStyle(.white)
@@ -106,6 +106,7 @@ struct MenuPanel: View {
         if model.status.Paused { return "pause.fill" }
         if model.status.UploadsLeft > 0 || !model.status.Ready { return "arrow.triangle.2.circlepath" }
         if !model.status.Connected { return "icloud.slash" }
+        if !model.conflicts.isEmpty { return "exclamationmark" }
         return "checkmark"
     }
 

@@ -51,12 +51,14 @@ p{margin:0}
 .row .k.title{font-weight:600}
 .row .v a,.link{color:var(--ink);text-decoration:underline;text-underline-offset:3px;text-decoration-color:var(--rule)}
 .row .v small{display:block;font-size:13px}
-.rm{font:500 14px/1 Inter,sans-serif;color:var(--ink-2);background:none;border:0;min-height:44px;padding:0 0 0 16px;cursor:pointer}
+.rm{font:500 14px/1 Inter,sans-serif;color:var(--ink-2);background:none;border:0;min-height:44px;min-width:44px;padding:0 0 0 8px;cursor:pointer;flex:none}
+.row .v{min-width:0;overflow-wrap:anywhere}
+.link{display:inline-flex;align-items:center;min-height:44px;margin:-12px 0}
 .rm:hover{color:var(--warn)}
 .confirm{padding:16px 0;border-bottom:1px solid var(--rule)}
 .confirm p{margin-bottom:16px}
 .confirm .acts{display:flex;gap:8px}
-.btn.danger{background:var(--warn);color:var(--on-ink)}
+.btn.danger{background:var(--ink);color:var(--on-ink)}
 .row>.i{color:var(--ink-2)}
 .btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:44px;padding:0 16px;border-radius:8px;font:500 14px/1 Inter,sans-serif;text-decoration:none;cursor:pointer;border:1px solid transparent;white-space:nowrap}
 .btn.ink{background:var(--ink);color:var(--on-ink)}
@@ -72,6 +74,7 @@ p{margin:0}
 .field{display:flex;gap:8px;margin:8px 0}
 .field input{flex:1;min-width:0;height:44px;border:1px solid var(--rule);border-radius:8px;background:var(--field);color:var(--ink);font:400 13px/1 Inter,sans-serif;padding:0 16px}
 .err{color:var(--warn);font-size:14px;margin-top:8px}
+.note.small{font-size:13px;color:var(--ink-3);margin-top:16px}
 footer{margin-top:40px;display:flex;justify-content:space-between;align-items:center;gap:16px;color:var(--ink-3);font-size:13px}
 footer button{font:inherit;color:inherit;background:none;border:0;min-height:44px;min-width:44px;padding:0 8px;margin-right:-8px;cursor:pointer;text-decoration:underline;text-underline-offset:3px}
 @media (max-width:520px){
@@ -110,6 +113,7 @@ footer button{font:inherit;color:inherit;background:none;border:0;min-height:44p
   <div id="setup">
     <p class="note" id="setup-note"></p>
     <div class="setup" id="add-open" hidden><a class="btn ink" href="magpie1:add-device">Add a device</a></div>
+    <p class="note small" id="add-why" hidden>The code carries your encryption key, which only your devices have, so it comes from the Mac, not this page. If nothing happens, update Magpie on the Mac first.</p>
     <div class="setup"><button class="btn ink" id="make">Make a setup link</button></div>
     <div class="made" id="made">
       <div class="qr" id="qr" aria-label="Setup link as a QR code"></div>
@@ -174,8 +178,8 @@ function renderServer(st) {
   const devs = h.devices || [];
   const devRows = devs.length
     ? devs.map((d) => confirming === d.id
-      ? `<div class="confirm"><p><b>Remove ${esc(d.name || "this device")}?</b><br><span class="note">It stops syncing at once and can't come back, even with an invite it makes itself. Files already on it stay there.</span></p>
-          <div class="acts"><button class="btn danger" data-remove="${esc(d.id)}">Remove</button><button class="btn line" data-cancel>Cancel</button></div></div>`
+      ? `<div class="confirm"><p><b>Remove ${esc(d.name || "this device")}?</b><br><span class="note">It stops syncing now and can't let itself back in. To use it again, add it from the Mac. Files already on it stay there.</span></p>
+          <div class="acts"><button class="btn danger" data-remove="${esc(d.id)}">Remove ${esc(d.name || "device")}</button><button class="btn line" data-cancel>Cancel</button></div></div>`
       : `<div class="row"><div class="k">${esc(d.name || d.id.slice(0, 7))}</div><span class="v">${d.connected ? "Connected" : "Seen " + ago(d.lastSeen)}</span><button class="rm" data-ask="${esc(d.id)}" aria-label="Remove ${esc(d.name || "device")}">Remove</button></div>`).join("")
     : `<div class="row"><div class="k note">No devices yet</div></div>`;
   const kept = h.historyFiles
@@ -195,9 +199,9 @@ function renderServer(st) {
   $("setup-note").textContent = first
     ? "Paste this link into Magpie, or scan it with your iPhone. It works once, for 15 minutes. This first device makes the encryption key; add the rest from Magpie on that device."
     : (onMac
-      ? "Opens Add Device in Magpie on this Mac, with a code to scan from Magpie on your iPhone (tap Join)."
-      : "Open this page on your Mac and choose Add a device, or click Magpie in the Mac's menu bar and choose Add Device….")
-      + " Your first device's link came from this page because there was no encryption key yet; that device made it. A new device needs that key, and only your devices have it, so its code comes from the Mac. If nothing happens, update Magpie on the Mac first.";
+      ? "Opens Add Device on this Mac; scan the code with Magpie on your iPhone."
+      : "On your Mac, open this page and choose Add a device, or choose Add Device… in Magpie's menu bar menu.");
+  $("add-why").hidden = first;
   $("add-open").hidden = first || !onMac;
   $("make").parentElement.hidden = !first;
   if (!first) $("made").classList.remove("on");
