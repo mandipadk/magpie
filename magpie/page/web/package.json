@@ -10,7 +10,7 @@
     "@base-ui/react": "^1.9.0",
     "@fontsource-variable/martian-mono": "^5.3.0",
     "@fontsource-variable/mona-sans": "^5.3.0",
-    "kiln": "github:mandipadk/designsystem#d5e4642",
+    "kiln": "github:mandipadk/designsystem#e95a578",
     "lucide-react": "^1.59.0",
     "motion": "^14.3.0",
     "qrcode-generator": "^1.4.4",

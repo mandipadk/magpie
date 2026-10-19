@@ -1,9 +1,9 @@
-import { useCallback, useEffect, useState } from "react"
+import { useCallback, useEffect, useState, type ReactNode } from "react"
 import qrcode from "qrcode-generator"
-import { Download, History as HistoryIcon, Laptop, Moon, Smartphone, Sun, TabletSmartphone } from "lucide-react"
+import { Download, History as HistoryIcon, Laptop, Moon, Plus, Smartphone, Sun, TabletSmartphone } from "lucide-react"
 import {
-  Button, CopyButton, Dialog, DialogClose, Divider, Facts, IconButton, Menu, Notice, Row, Skeleton,
-  Stack, State, Statement, Tag, Text, Value, useTheme,
+  Button, CopyButton, Dialog, DialogClose, EmptyState, Heading, IconButton, Menu, Notice, Skeleton,
+  Stat, Surface, Table, Tag, Text, Value, useTheme, type Column,
 } from "kiln"
 
 /* What /api/state answers (server.mjs). */
@@ -13,7 +13,7 @@ interface Hub {
   files: number; bytes: number; historyFiles: number; historyBytes: number; historyLatest?: string
   uptimeS: number; folderErrors: number; devices: Device[] | null
 }
-interface State_ {
+interface PageState {
   hub: Hub; open: boolean; sample: boolean
   mac: { url: string; version: string; size: number } | null
   iphone: { url: string } | null
@@ -41,13 +41,14 @@ const ago = (iso: string) => {
   return s < 90 ? "just now" : `${span(s)} ago`
 }
 const clock = (iso: string | Date) => new Date(iso).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })
+const seen = (iso?: string) => !!iso && !iso.startsWith("1970") && !iso.startsWith("0001")
 
 // iPads say Macintosh too; they have touch.
 const onMac = /Macintosh/.test(navigator.userAgent) && navigator.maxTouchPoints < 2
 const onPhone = /iPhone|iPad/.test(navigator.userAgent) || (/Macintosh/.test(navigator.userAgent) && navigator.maxTouchPoints > 1)
 
 export function App() {
-  const [st, setSt] = useState<State_ | null>(null)
+  const [st, setSt] = useState<PageState | null>(null)
   const [failed, setFailed] = useState(false)
   const [checked, setChecked] = useState<Date | null>(null)
 
@@ -67,40 +68,64 @@ export function App() {
     return () => clearInterval(t)
   }, [load])
 
-  const devices = st?.hub.devices ?? []
   return (
     <div className="mp">
       <header className="mp-bar">
-        <Row gap={2}>
-          <img className="mp-mark" src="/icon.png" alt="" width={32} height={32} />
+        <div className="mp-bar__brand">
+          <img className="mp-mark" src="/icon.png" alt="" width={28} height={28} />
           <Text as="span" size="label">Magpie</Text>
+          {st && <HubTag st={st} />}
           {st?.sample && <Tag tone="sunk">Sample data</Tag>}
-        </Row>
+        </div>
         <ThemeMenu />
       </header>
 
       <main className="mp-main">
         {failed && !st && <Notice tone="danger" title="This page can't reach its server">It tries again every 30 seconds.</Notice>}
-        {!st && !failed && <Stack gap={4} aria-busy="true" aria-label="Checking Frankfurt"><Skeleton width="70%" height={56} /><Skeleton lines={3} /></Stack>}
-        {st && (
+        {!st && !failed && <Loading />}
+        {st && st.hub.error && (
+          <Notice tone="danger" title="Frankfurt isn't answering">{st.hub.error}</Notice>
+        )}
+        {st && !st.hub.error && (
           <>
-            <Hero st={st} />
-            <History hub={st.hub} />
-            <Divider />
-            <Devices devices={devices} reload={load} />
-            <Divider />
-            <AddDevice st={st} first={devices.length === 0} reload={load} />
-            <Divider />
-            <GetMagpie st={st} hasDevices={devices.length > 0} />
+            {!st.open && <Notice tone="warning" title="Your devices can't reach Frankfurt">Port 22000 has to be open for TCP and UDP in Oracle Cloud.</Notice>}
+            {st.hub.folderErrors > 0 && <Notice tone="warning" title="Frankfurt can't save some files">The weekly check on the server looks into it and tells you.</Notice>}
+            <div className="mp-stats" aria-label="Frankfurt">
+              <Stat label="Files" value={<Value>{st.hub.files.toLocaleString()}</Value>} />
+              <Stat label="Stored, encrypted" value={<Value>{bytes(st.hub.bytes)}</Value>} />
+              <Stat label="Older versions" value={<Value>{st.hub.historyFiles.toLocaleString()}</Value>} />
+              <Stat label="Running for" value={<Value>{span(st.hub.uptimeS)}</Value>} />
+            </div>
+            <Devices st={st} reload={load} />
+            <div className="mp-pair">
+              <Versions hub={st.hub} />
+              <GetMagpie st={st} />
+            </div>
           </>
         )}
       </main>
 
       <footer className="mp-foot">
-        {checked && <Text size="caption" tone="subtle">Checked at <Value>{clock(checked)}</Value>, again every 30 seconds</Text>}
+        {checked && <Text size="caption" tone="subtle">Checked at <Value>{clock(checked)}</Value></Text>}
       </footer>
     </div>
   )
+}
+
+function Loading() {
+  return (
+    <div className="mp-stats" aria-busy="true" aria-label="Checking Frankfurt">
+      {[0, 1, 2, 3].map((i) => <Skeleton key={i} height={64} />)}
+    </div>
+  )
+}
+
+/* The server's state, as a tag next to the name. */
+function HubTag({ st }: { st: PageState }) {
+  if (st.hub.error) return <Tag tone="outline">Not answering</Tag>
+  if (!st.open) return <Tag tone="outline">Unreachable</Tag>
+  if (st.hub.folderErrors) return <Tag tone="outline">Needs a look</Tag>
+  return <Tag tone="accent">Running</Tag>
 }
 
 function ThemeMenu() {
@@ -118,50 +143,15 @@ function ThemeMenu() {
   )
 }
 
-/* The server's state is the first thing on the page. */
-function Hero({ st }: { st: State_ }) {
-  const h = st.hub
-  if (h.error)
-    return (
-      <section className="mp-hero">
-        <State kind="failed">Not answering</State>
-        <Statement level={1} size="title-1" title="Frankfurt isn't answering">{h.error}</Statement>
-      </section>
-    )
-  const [state, kind, title, why] = !st.open
-    ? ["Unreachable", "failed", "Frankfurt is running, out of reach", "Port 22000 has to be open for TCP and UDP in Oracle Cloud before your devices can connect."]
-    : h.folderErrors
-      ? ["Needs a look", "failed", "Frankfurt can't save some files", "The weekly check on the server looks into it and tells you."]
-      : ["Live", "live", "Frankfurt is keeping your files", "Encrypted with a key only your devices have."]
+function Panel({ title, action, children }: { title: string; action?: ReactNode; children: ReactNode }) {
   return (
-    <section className="mp-hero">
-      <State kind={kind as "live" | "failed"}>{state}</State>
-      <Statement level={1} size="title-1" title={title}>{why}</Statement>
-      <Facts
-        items={[
-          ["Files", <Value key="f">{h.files.toLocaleString()}</Value>],
-          ["Stored, encrypted", <Value key="b">{bytes(h.bytes)}</Value>],
-          ["Running for", <Value key="u">{span(h.uptimeS)}</Value>],
-        ]}
-      />
-    </section>
-  )
-}
-
-function History({ hub }: { hub: Hub }) {
-  if (hub.error) return null
-  const has = hub.historyFiles > 0
-  return (
-    <section className="mp-section">
-      <Statement title="Older versions">
-        {has
-          ? `Frankfurt keeps ${plural(hub.historyFiles, "older version", "older versions")}, ${bytes(hub.historyBytes)}${hub.historyLatest ? `, the newest kept ${ago(hub.historyLatest)}` : ""}. Browse and restore them in Magpie.`
-          : "None yet. When a file changes or is deleted, the version before is kept here for a year."}
-      </Statement>
-      <div>
-        <Button variant="outline" size="sm" icon={<HistoryIcon />} onClick={() => (location.href = "magpie1:history")}>Browse in Magpie</Button>
+    <Surface as="section" tone="flat" pad="md" className="mp-panel" aria-label={title}>
+      <div className="mp-panel__head">
+        <Heading level={2} size="label">{title}</Heading>
+        {action}
       </div>
-    </section>
+      {children}
+    </Surface>
   )
 }
 
@@ -171,10 +161,13 @@ function deviceIcon(name: string) {
   return <Laptop />
 }
 
-function Devices({ devices, reload }: { devices: Device[]; reload: () => void }) {
+function Devices({ st, reload }: { st: PageState; reload: () => void }) {
+  const devices = st.hub.devices ?? []
   const [removing, setRemoving] = useState<Device | null>(null)
+  const [adding, setAdding] = useState(false)
   const [busy, setBusy] = useState(false)
   const [problem, setProblem] = useState<string | null>(null)
+
   const remove = async () => {
     if (!removing) return
     setBusy(true); setProblem(null)
@@ -189,32 +182,53 @@ function Devices({ devices, reload }: { devices: Device[]; reload: () => void })
       setBusy(false)
     }
   }
+
+  const columns: Column<Device>[] = [
+    {
+      key: "name", header: "Device", sortValue: (d) => d.name,
+      cell: (d) => (
+        <span className="mp-device">
+          <span className="mp-device__icon" aria-hidden>{deviceIcon(d.name)}</span>
+          <span>{d.name || d.id.slice(0, 7)}</span>
+        </span>
+      ),
+    },
+    {
+      key: "state", header: "Status", sortValue: (d) => (d.connected ? 0 : 1),
+      cell: (d) => <Tag tone={d.connected ? "accent" : "sunk"}>{d.connected ? "Online" : "Offline"}</Tag>,
+    },
+    {
+      key: "when", header: "Last activity", hideBelow: "sm", numeric: true,
+      sortValue: (d) => -new Date(d.connected ? Date.now() : d.lastSeen).getTime(),
+      cell: (d) => d.connected
+        ? (d.connectedAt ? <>Since <Value>{clock(d.connectedAt)}</Value></> : "Now")
+        : seen(d.lastSeen) ? <Value>{ago(d.lastSeen)}</Value> : "Never",
+    },
+    {
+      key: "remove", header: "", align: "end", width: "96px",
+      cell: (d) => <Button variant="ghost" size="sm" className="mp-quiet" onClick={() => { setProblem(null); setRemoving(d) }} aria-label={`Remove ${d.name}`}>Remove</Button>,
+    },
+  ]
+
   return (
-    <section className="mp-section">
-      <Statement title="Devices">Each one holds the key. The server only passes encrypted files between them.</Statement>
-      {devices.length === 0
-        ? <Text tone="muted">No devices yet.</Text>
-        : (
-          <ul className="mp-list">
-            {devices.map((d) => (
-              <li key={d.id} className="mp-item">
-                <span className="mp-item__icon" aria-hidden>{deviceIcon(d.name)}</span>
-                <div className="mp-item__body">
-                  <Text as="span" size="label">{d.name || d.id.slice(0, 7)}</Text>
-                  <Text size="body-sm" tone="muted">
-                    {d.connected
-                      ? d.connectedAt ? <>Connected since <Value>{clock(d.connectedAt)}</Value></> : "Connected now"
-                      : d.lastSeen && !d.lastSeen.startsWith("1970") ? <>Last seen <Value>{ago(d.lastSeen)}</Value></> : "Not seen yet"}
-                  </Text>
-                </div>
-                <div className="mp-item__end">
-                  <State kind={d.connected ? "live" : "idle"}>{d.connected ? "Online" : "Offline"}</State>
-                  <Button className="mp-quiet" variant="ghost" size="sm" onClick={() => { setProblem(null); setRemoving(d) }}>Remove</Button>
-                </div>
-              </li>
-            ))}
-          </ul>
-        )}
+    <Panel
+      title="Devices"
+      action={<Button variant="ink" size="sm" icon={<Plus />} onClick={() => (devices.length > 0 && onMac ? (location.href = "magpie1:add-device") : setAdding(true))}>Add a device</Button>}
+    >
+      <Table<Device>
+        caption="Devices sharing your Magpie"
+        columns={columns}
+        rows={devices}
+        rowKey={(d) => d.id}
+        empty={
+          <EmptyState icon={<Laptop />} title="No devices yet" action={<Button variant="outline" onClick={() => setAdding(true)}>Set up your first device</Button>}>
+            Your first device makes the encryption key; add the rest from it.
+          </EmptyState>
+        }
+      />
+
+      <AddDialog open={adding} onOpenChange={setAdding} st={st} first={devices.length === 0} reload={reload} />
+
       <Dialog
         open={removing != null}
         onOpenChange={(o) => { if (!o && !busy) setRemoving(null) }}
@@ -231,24 +245,27 @@ function Devices({ devices, reload }: { devices: Device[]; reload: () => void })
       >
         {problem && <Notice tone="danger" title={problem} />}
       </Dialog>
-    </section>
+    </Panel>
   )
 }
 
-function AddDevice({ st, first, reload }: { st: State_; first: boolean; reload: () => void }) {
+/* The first device gets a link from the server; later ones get their code from the Mac,
+   because only devices hold the encryption key. */
+function AddDialog({ open, onOpenChange, st, first, reload }: { open: boolean; onOpenChange: (o: boolean) => void; st: PageState; first: boolean; reload: () => void }) {
   const [link, setLink] = useState<{ link: string; expires: string } | null>(null)
   const [busy, setBusy] = useState(false)
   const [problem, setProblem] = useState<string | null>(null)
 
   if (!first)
     return (
-      <section className="mp-section">
-        <Statement title="Add a device">
-          {onMac ? "Opens Add Device in Magpie on this Mac. Scan its code with Magpie on your iPhone." : "On your Mac, open this page and choose Add a device, or choose Add Device… from Magpie in the menu bar."}
-        </Statement>
-        {onMac && <div><Button variant="ink" onClick={() => (location.href = "magpie1:add-device")}>Add a device</Button></div>}
-        {onMac && <Text size="caption" tone="subtle">The code carries your encryption key, which only your devices have, so it comes from the Mac and not from this page. If nothing opens, update Magpie on the Mac first.</Text>}
-      </section>
+      <Dialog
+        open={open}
+        onOpenChange={onOpenChange}
+        size="sm"
+        title="Add a device from your Mac"
+        description="A new device needs your encryption key, and only your devices have it. Open this page on your Mac and press Add a device, or choose Add Device… from Magpie in the Mac's menu bar, then scan the code with Magpie on your iPhone."
+        actions={<DialogClose render={<Button variant="ink">Done</Button>} />}
+      />
     )
 
   const waiting = [!st.open && "your devices can reach the server", !st.mac && !st.iphone && "Magpie is ready to install"].filter(Boolean)
@@ -267,53 +284,70 @@ function AddDevice({ st, first, reload }: { st: State_; first: boolean; reload: 
   }
   const svg = link ? (() => { const q = qrcode(0, "M"); q.addData(link.link); q.make(); return q.createSvgTag({ cellSize: 4, margin: 0, scalable: true }) })() : ""
   return (
-    <section className="mp-section">
-      <Statement title="Set up your first device">
-        {waiting.length
-          ? `You can make a setup link once ${waiting.join(" and ")}.`
-          : "Paste this link into Magpie, or scan it with your iPhone. It works once, for 15 minutes. This first device makes the encryption key; add the rest from it."}
-      </Statement>
-      <div><Button variant="ink" loading={busy} disabled={waiting.length > 0} onClick={make}>{link ? "Make a new link" : "Make a setup link"}</Button></div>
+    <Dialog
+      open={open}
+      onOpenChange={onOpenChange}
+      title="Set up your first device"
+      description={waiting.length ? `You can make a setup link once ${waiting.join(" and ")}.` : "Paste the link into Magpie, or scan it with your iPhone. It works once, for 15 minutes."}
+      actions={
+        <>
+          <DialogClose render={<Button variant="outline">Close</Button>} />
+          <Button variant="ink" loading={busy} disabled={waiting.length > 0} onClick={make}>{link ? "Make a new link" : "Make a setup link"}</Button>
+        </>
+      }
+    >
       {problem && <Notice tone="danger" title={problem} />}
       {link && (
-        <Row gap={5} align="start" wrap>
+        <div className="mp-link">
           <div className="mp-qr" aria-label="Setup link as a QR code" dangerouslySetInnerHTML={{ __html: svg }} />
-          <Stack gap={3}>
+          <div className="mp-link__side">
             <CopyButton value={link.link} variant="outline">Copy the link</CopyButton>
             <Text size="caption" tone="subtle">Works once, until <Value>{clock(link.expires)}</Value>.</Text>
-          </Stack>
-        </Row>
+          </div>
+        </div>
       )}
-    </section>
+    </Dialog>
   )
 }
 
-function GetMagpie({ st, hasDevices }: { st: State_; hasDevices: boolean }) {
+function Versions({ hub }: { hub: Hub }) {
+  const has = hub.historyFiles > 0
   return (
-    <section className="mp-section">
-      <Statement title="Get Magpie">For your Mac and your iPhone.</Statement>
-      <ul className="mp-list">
-        <li className="mp-item mp-item--top">
-          <span className="mp-item__icon" aria-hidden><Laptop /></span>
-          <div className="mp-item__body">
+    <Panel title="Older versions" action={<Button variant="outline" size="sm" icon={<HistoryIcon />} onClick={() => (location.href = "magpie1:history")}>Browse</Button>}>
+      <div className="mp-kv">
+        <div><Text as="span" size="caption" tone="muted">Kept</Text><Text as="span" size="body"><Value>{has ? plural(hub.historyFiles, "version", "versions") : "None yet"}</Value></Text></div>
+        <div><Text as="span" size="caption" tone="muted">Size</Text><Text as="span" size="body"><Value>{bytes(hub.historyBytes)}</Value></Text></div>
+        <div><Text as="span" size="caption" tone="muted">Newest</Text><Text as="span" size="body"><Value>{has && hub.historyLatest ? ago(hub.historyLatest) : "None yet"}</Value></Text></div>
+      </div>
+      <Text size="caption" tone="subtle">Kept for a year when a file changes or is deleted. Browse opens history in Magpie.</Text>
+    </Panel>
+  )
+}
+
+function GetMagpie({ st }: { st: PageState }) {
+  const installed = (st.hub.devices ?? []).length > 0
+  return (
+    <Panel title="Get Magpie">
+      <ul className="mp-apps">
+        <li className="mp-app">
+          <span className="mp-app__icon" aria-hidden><Laptop /></span>
+          <div className="mp-app__body">
             <Text as="span" size="label">Mac</Text>
-            {st.mac
-              ? <Facts layout="stack" className="mp-meta" items={[["Version", <Value key="v">{st.mac.version}</Value>], ["Size", <Value key="s">{bytes(st.mac.size)}</Value>], ["Needs", "macOS 14+"]]} />
-              : <Text size="body-sm" tone="muted">The first build is on its way.</Text>}
+            <Text as="span" size="caption" tone="muted">{st.mac ? <>Version <Value>{st.mac.version}</Value>, <Value>{bytes(st.mac.size)}</Value>, macOS 14 or later</> : "First build on its way"}</Text>
           </div>
-          {st.mac && <div className="mp-item__end"><Button variant="outline" icon={<Download />} onClick={() => (location.href = st.mac!.url)}>Download</Button></div>}
-          {st.mac && hasDevices && <Text className="mp-item__note" size="caption" tone="subtle">Already installed? Magpie updates itself. Quit Magpie before opening a new download.</Text>}
+          {st.mac && <Button variant="outline" size="sm" icon={<Download />} onClick={() => (location.href = st.mac!.url)}>Download</Button>}
         </li>
-        <li className="mp-item mp-item--top">
-          <span className="mp-item__icon" aria-hidden><Smartphone /></span>
-          <div className="mp-item__body">
+        <li className="mp-app">
+          <span className="mp-app__icon" aria-hidden><Smartphone /></span>
+          <div className="mp-app__body">
             <Text as="span" size="label">iPhone</Text>
-            <Facts layout="stack" className="mp-meta" items={[["From", "TestFlight"], ["Needs", "iOS 17+"]]} />
+            <Text as="span" size="caption" tone="muted">TestFlight, iOS 17 or later</Text>
           </div>
-          {onPhone && st.iphone && <div className="mp-item__end"><Button variant="outline" onClick={() => (location.href = "itms-beta://")}>Open TestFlight</Button></div>}
-          {!onPhone && <Text className="mp-item__note" size="caption" tone="subtle">Open TestFlight on your iPhone; Magpie is waiting there.</Text>}
+          <Button variant="outline" size="sm" disabled={!onPhone} onClick={() => (location.href = "itms-beta://")}>Open TestFlight</Button>
         </li>
       </ul>
-    </section>
+      {installed && <Text size="caption" tone="subtle">Magpie updates itself once installed. Quit it before opening a new download.</Text>}
+      {!onPhone && <Text size="caption" tone="subtle">Open TestFlight works on your iPhone.</Text>}
+    </Panel>
   )
 }

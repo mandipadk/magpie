@@ -10,6 +10,12 @@ public, and frankfurt:~/code/magpie). Page: https://magpie.mandip.dev (private, 
       page > Add a device on the Mac (or menu bar > Add Device…), scan with Magpie on the iPhone;
       then save on Mac -> Files on the phone. See SCOPE.md.
 
+## The page as an app (owner, 2026-10-19 ~19:10)
+- [x] Rebuilt from Kiln app parts (Kiln e95a578): top bar with a status Tag and the theme menu; Stat
+      for files, storage, older versions and uptime; Surface panels; a Table of devices with an
+      Online/Offline Tag, last activity and Remove (Dialog); Add a device, Browse, Download and Open
+      TestFlight as real buttons; no run-in statements or display type
+
 ## Kiln page and the iPhone app's connection (2026-10-19, evening)
 - [x] Page rebuilt on Kiln (github:mandipadk/designsystem @d5e4642): magpie/page/web (React, Kiln
       components, tokens, Mona Sans, Kiln's theme menu), built into magpie/page/dist and served by
