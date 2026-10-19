@@ -1,14 +1,14 @@
 [
   {"goto": "https://magpie.mandip.dev"},
-  {"wait": "text=Server"},
+  {"wait": "text=Frankfurt is keeping your files"},
   {"see": "text=Stored, encrypted"},
   {"see": "text=Older versions"},
   {"see": "text=Browse in Magpie"},
   {"see": "text=Devices"},
-  {"see": "text=Remove"},
+  {"click": "role=button[name=\"Remove\"] >> nth=0"},
+  {"see": "text=It stops syncing now"},
+  {"click": "role=button[name=\"Cancel\"]"},
   {"see": "text=Get Magpie"},
-  {"see": "text=Add a device"},
-  {"click": "text=Dark"},
-  {"see": "text=Light"},
-  {"click": "text=Light"}
+  {"click": "role=button[name=\"Theme\"]"},
+  {"click": "text=Dark"}
 ]

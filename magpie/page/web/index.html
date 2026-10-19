@@ -1,0 +1,17 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Magpie</title>
+<link rel="icon" href="/icon.png">
+<script>
+  // Kiln keeps the theme choice here; apply it before paint so dark never flashes light.
+  try { var t = localStorage.getItem("kiln-theme"); if (t === "light" || t === "dark") document.documentElement.dataset.theme = t } catch (e) {}
+</script>
+</head>
+<body>
+<div id="root"></div>
+<script type="module" src="/src/main.tsx"></script>
+</body>
+</html>

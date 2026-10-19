@@ -103,7 +103,7 @@ function sample() {
       hubID: "SAMPLE", version: "v2.1.7-magpie", uptimeS: 9 * 86400, encrypted: true,
       files: 1284, bytes: 6650000000, historyBytes: 412000000, historyFiles: 96, historyLatest: ago(40), folderErrors: 0,
       devices: [
-        { id: "SAMPLEA-AAAAAAA-AAAAAAA-AAAAAAA-AAAAAAA-AAAAAAA-AAAAAAA-AAAAAAA", name: "MacBook Air", connected: true, lastSeen: ago(0), client: "magpie" },
+        { id: "SAMPLEA-AAAAAAA-AAAAAAA-AAAAAAA-AAAAAAA-AAAAAAA-AAAAAAA-AAAAAAA", name: "MacBook Air", connected: true, lastSeen: ago(0), connectedAt: ago(95), client: "magpie" },
         { id: "SAMPLEB-BBBBBBB-BBBBBBB-BBBBBBB-BBBBBBB-BBBBBBB-BBBBBBB-BBBBBBB", name: "iPhone", connected: false, lastSeen: ago(12), client: "magpie" },
       ],
     },
@@ -112,7 +112,12 @@ function sample() {
   };
 }
 
-const types = { ".html": "text/html; charset=utf-8", ".png": "image/png", ".js": "text/javascript" };
+// The page is built from web/ (Kiln) into dist/; run `npm run build` in web/.
+const DIST = HERE + "dist/";
+const types = {
+  ".html": "text/html; charset=utf-8", ".png": "image/png", ".js": "text/javascript", ".css": "text/css",
+  ".woff2": "font/woff2", ".svg": "image/svg+xml",
+};
 
 http.createServer(async (req, res) => {
   const url = new URL(req.url, "http://x");
@@ -141,8 +146,10 @@ http.createServer(async (req, res) => {
     }
     if (req.method === "GET") {
       const name = url.pathname === "/" ? "index.html" : url.pathname.slice(1);
-      if (!/^[\w.-]+$/.test(name) || !types[name.slice(name.lastIndexOf("."))]) return send(404, "not found", "text/plain");
-      return send(200, await readFile(HERE + name), types[name.slice(name.lastIndexOf("."))]);
+      if (!/^(assets\/)?[\w.-]+$/.test(name) || !types[name.slice(name.lastIndexOf("."))]) return send(404, "not found", "text/plain");
+      const body = await readFile(DIST + name).catch(() => null);
+      if (!body) return send(404, "not found", "text/plain");
+      return send(200, body, types[name.slice(name.lastIndexOf("."))]);
     }
     send(405, "no", "text/plain");
   } catch (e) {

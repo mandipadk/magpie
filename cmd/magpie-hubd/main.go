@@ -544,7 +544,9 @@ type Device struct {
 	Name      string    `json:"name"`
 	Connected bool      `json:"connected"`
 	LastSeen  time.Time `json:"lastSeen"`
-	Client    string    `json:"client,omitempty"`
+	// ConnectedAt is when the current connection started.
+	ConnectedAt time.Time `json:"connectedAt,omitzero"`
+	Client      string    `json:"client,omitempty"`
 }
 
 // Status is what the Magpie page shows about the hub.
@@ -585,8 +587,9 @@ func (h *hub) status() (Status, error) {
 	}
 	var conns struct {
 		Connections map[string]struct {
-			Connected     bool   `json:"connected"`
-			ClientVersion string `json:"clientVersion"`
+			Connected     bool      `json:"connected"`
+			ClientVersion string    `json:"clientVersion"`
+			StartedAt     time.Time `json:"startedAt"`
 		} `json:"connections"`
 	}
 	_ = h.api("GET", "/rest/system/connections", nil, &conns)
@@ -609,7 +612,11 @@ func (h *hub) status() (Status, error) {
 			continue
 		}
 		c := conns.Connections[d.DeviceID]
-		s.Devices = append(s.Devices, Device{ID: d.DeviceID, Name: d.Name, Connected: c.Connected, LastSeen: stats[d.DeviceID].LastSeen, Client: c.ClientVersion})
+		dev := Device{ID: d.DeviceID, Name: d.Name, Connected: c.Connected, LastSeen: stats[d.DeviceID].LastSeen, Client: c.ClientVersion}
+		if c.Connected {
+			dev.ConnectedAt = c.StartedAt
+		}
+		s.Devices = append(s.Devices, dev)
 	}
 	sort.Slice(s.Devices, func(a, b int) bool { return s.Devices[a].Name < s.Devices[b].Name })
 	_ = filepath.Walk(h.historyDir(), func(_ string, fi os.FileInfo, err error) error {
