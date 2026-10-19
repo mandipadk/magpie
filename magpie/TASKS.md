@@ -5,13 +5,13 @@ Magpie is the owner's own iCloud Drive: a Syncthing fork (branch `magpie`, upstr
 Finder and Files. Working copy: chicago:~/code/magpie (pushes to frankfurt:~/code/magpie).
 
 ## Waiting on the owner (asked 2026-10-19)
-- [ ] Repo public or private (ask-me). Public = free Mac builds and a .dmg/appcast anyone can fetch.
+- [x] Repo public (owner chose): github.com/mandipadk/magpie, default branch magpie
 - [ ] Oracle ingress TCP+UDP 22000 (errand ffcbaa, running)
 - [ ] Root install on Frankfurt: `MAGPIE_ADDR=92.5.139.56:22000 magpie/deploy/install.sh`
       (power sudo timed out on the server side; re-ask)
-- [ ] After the repo exists: copy MAC_DEVID_P12/PASSWORD, ASC_KEY_ID/ISSUER_ID/KEY_P8 (power secret
-      github from the saved Kestrel secrets), IOS_DEV_P12/PASSWORD (from ~/.config/kestrel/ci-dev),
-      SPARKLE_ED_KEY (~/.config/magpie/sparkle-ed25519, made here; public key in apps/mac/project.yml)
+- [x] IOS_DEV_P12/PASSWORD (CI's lasting dev key, ~/.config/kestrel/ci-dev) and SPARKLE_ED_KEY set
+- [ ] MAC_DEVID_P12/PASSWORD and ASC_KEY_ID/ISSUER_ID/KEY_P8: Kestrel's were typed straight into its
+      GitHub secrets, so nothing is saved to copy; owner asked once with power secret file
 - [ ] App Store Connect app record "Magpie" for dev.mandip.magpie (errand, after CI registers the ID)
 
 ## 1. Server
