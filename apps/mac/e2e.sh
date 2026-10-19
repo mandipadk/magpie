@@ -26,7 +26,12 @@ mkdir -p "$OUT/bin"
 
 step() { echo "== $*"; printf '\n## %s\n' "$*" >> "$OUT/steps.md"; }
 ok() { echo "  ok: $*"; echo "- ok: $*" >> "$OUT/steps.md"; }
-fail() { echo "  FAILED: $*"; echo "- FAILED: $*" >> "$OUT/steps.md"; shot "failed"; exit 1; }
+fail() {
+  echo "  FAILED: $*"; echo "- FAILED: $*" >> "$OUT/steps.md"; shot "failed"
+  ps -axo pid,lstart,args | grep -i "[m]agpie" > "$OUT/processes.txt" || true
+  log show --last 20m --style compact --predicate 'subsystem == "dev.mandip.magpie" OR process == "MagpieFiles" OR (process == "fileproviderd" AND eventMessage CONTAINS[c] "magpie")' > "$OUT/magpie.log" 2>&1 || true
+  exit 1
+}
 shot() { screencapture -x "$OUT/$1.png" 2>/dev/null || true; }
 waitfor() { # waitfor <seconds> <what> <command...>
   local n=$1 what=$2; shift 2

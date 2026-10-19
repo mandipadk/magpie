@@ -27,6 +27,7 @@ final class EngineHost: NSObject, MobileListenerProtocol {
         try FileManager.default.createDirectory(at: Magpie.engineDir, withIntermediateDirectories: true)
         var err: NSError?
         guard let e = MobileOpen(config, Magpie.engineDir.path, &err) else {
+            log.error("engine didn't open: \(err?.localizedDescription ?? "no error", privacy: .public)")
             throw err ?? NSFileProviderError(.serverUnreachable)
         }
         e.setListener(self)

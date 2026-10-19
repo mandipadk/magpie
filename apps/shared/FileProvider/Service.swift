@@ -62,7 +62,7 @@ final class ServiceSource: NSObject, NSFileProviderServiceSource, NSXPCListenerD
 
     func invite(reply: @escaping (String?, String?) -> Void) {
         do {
-            guard let e = engine else { return reply(nil, "Magpie isn't set up on this device.") }
+            let e = try EngineHost.shared.get(domain: ext?.domain)
             reply(try goCall { e.invite($0) }, nil)
         } catch {
             reply(nil, error.localizedDescription)
