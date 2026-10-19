@@ -90,6 +90,9 @@ targets:
             - NSExtensionFileProviderActionIdentifier: dev.mandip.magpie.free
               NSExtensionFileProviderActionName: Remove Download
               NSExtensionFileProviderActionActivationRule: "SUBQUERY ( fileproviderItems, $fileproviderItem, $fileproviderItem.isDownloaded == YES ).@count > 0"
+            - NSExtensionFileProviderActionIdentifier: dev.mandip.magpie.history
+              NSExtensionFileProviderActionName: Version History…
+              NSExtensionFileProviderActionActivationRule: "SUBQUERY ( fileproviderItems, $fileproviderItem, $fileproviderItem.userInfo.dir == NO ).@count == 1 AND fileproviderItems.@count == 1"
     entitlements:
       path: Files/MagpieFiles.entitlements
       properties:

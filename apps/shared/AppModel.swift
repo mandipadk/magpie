@@ -140,6 +140,71 @@ final class AppModel: ObservableObject {
         }
     }
 
+    // MARK: Version history
+
+    /// The server's old versions of a file, newest first.
+    func versions(of path: String) async -> Result<[OldVersion], JoinLink.Failure> {
+        if sample { return .success(Self.sampleVersions(path)) }
+        return await withCheckedContinuation { cont in
+            guard let proxy else { return cont.resume(returning: .failure(.init("Magpie isn't reachable right now."))) }
+            proxy.versions(path: path) { data, err in
+                if let data, let v = try? engineDecoder.decode([OldVersion].self, from: data) {
+                    cont.resume(returning: .success(v))
+                } else {
+                    cont.resume(returning: .failure(.init(err ?? "Couldn't read the history.")))
+                }
+            }
+        }
+    }
+
+    /// Deleted files the server still keeps, most recently deleted first.
+    func deletedFiles() async -> Result<[OldVersion], JoinLink.Failure> {
+        if sample { return .success(Self.sampleDeleted) }
+        return await withCheckedContinuation { cont in
+            guard let proxy else { return cont.resume(returning: .failure(.init("Magpie isn't reachable right now."))) }
+            proxy.deleted { data, err in
+                if let data, let v = try? engineDecoder.decode([OldVersion].self, from: data) {
+                    cont.resume(returning: .success(v))
+                } else {
+                    cont.resume(returning: .failure(.init(err ?? "Couldn't read the history.")))
+                }
+            }
+        }
+    }
+
+    /// A version written where this app can show it.
+    func previewFile(_ v: OldVersion) async -> URL? {
+        if sample { return nil }
+        return await withCheckedContinuation { cont in
+            guard let proxy else { return cont.resume(returning: nil) }
+            proxy.preview(id: v.ID) { path, _ in cont.resume(returning: path.map(URL.init(fileURLWithPath:))) }
+        }
+    }
+
+    /// Puts a version back, in place or as a copy beside the file. Returns
+    /// an error message, or nil when it worked.
+    func restore(_ v: OldVersion, asCopy: Bool) async -> String? {
+        if sample { return nil }
+        let err: String? = await withCheckedContinuation { cont in
+            guard let proxy else { return cont.resume(returning: "Magpie isn't reachable right now.") }
+            proxy.restore(id: v.ID, asCopy: asCopy) { cont.resume(returning: $0) }
+        }
+        refresh()
+        return err
+    }
+
+    /// The entries of a folder, for browsing to a file's history.
+    func entries(in dir: String) async -> [Entry] {
+        if sample { return Self.sampleEntries(dir) }
+        return await withCheckedContinuation { cont in
+            guard let proxy else { return cont.resume(returning: []) }
+            proxy.list(dir: dir) { data in
+                let e = (try? engineDecoder.decode([Entry].self, from: data)) ?? []
+                cont.resume(returning: e.sorted { ($0.Dir ? 0 : 1, $0.name.lowercased()) < ($1.Dir ? 0 : 1, $1.name.lowercased()) })
+            }
+        }
+    }
+
     // MARK: Words the screens use
 
     /// How the screens name a device: this one is "This Mac" or "This iPhone".
@@ -198,6 +263,88 @@ final class AppModel: ObservableObject {
             DeviceInfo(ID: "C", Name: "Frankfurt", ThisOne: false, Hub: true),
         ]
         kept = ["Taxes 2026", "Lisbon itinerary.pages"]
+    }
+
+    static func sampleVersions(_ path: String) -> [OldVersion] {
+        #if os(macOS)
+        let (me, other) = ("MacBook Air", "iPhone")
+        #else
+        let (me, other) = ("iPhone", "MacBook Air")
+        #endif
+        let now = Date()
+        let cal = Calendar.current
+        let today = { (h: Int, m: Int) in cal.date(bySettingHour: h, minute: m, second: 0, of: now) ?? now }
+        let ago = { (d: Int, h: Int, m: Int) in cal.date(byAdding: .day, value: -d, to: today(h, m)) ?? now }
+        let rows: [(Date, String, Int64)] = [
+            (today(9, 5), me, 412_000), (ago(4, 20, 41), me, 398_000),
+            (ago(7, 7, 58), other, 371_000), (ago(22, 18, 13), me, 288_000),
+        ]
+        return rows.enumerated().map { i, r in
+            OldVersion(ID: "sample-\(i)", Path: path, Size: r.2, Modified: r.0, ModifiedBy: r.1, Kept: r.0.addingTimeInterval(3600))
+        }
+    }
+
+    static let sampleDeleted: [OldVersion] = {
+        let now = Date()
+        return [
+            OldVersion(ID: "d1", Path: "Notes/Packing list.txt", Size: 1_200, Modified: now.addingTimeInterval(-86_400 * 2), ModifiedBy: "iPhone", Kept: now.addingTimeInterval(-3_600 * 5)),
+            OldVersion(ID: "d2", Path: "Taxes 2026/Receipt 0412.pdf", Size: 182_000, Modified: now.addingTimeInterval(-86_400 * 12), ModifiedBy: "MacBook Air", Kept: now.addingTimeInterval(-86_400 * 3)),
+        ]
+    }()
+
+    static func sampleEntries(_ dir: String) -> [Entry] {
+        let now = Date()
+        let names: [(String, Bool, Int64)] = dir.isEmpty
+            ? [("Money", true, 0), ("Taxes 2026", true, 0), ("Trips", true, 0), ("Lisbon itinerary.pages", false, 412_000)]
+            : [("Budget.numbers", false, 182_000), ("Savings plan.pdf", false, 96_000)]
+        return names.map { n in
+            Entry(Path: dir.isEmpty ? n.0 : dir + "/" + n.0, Dir: n.1, Size: n.2, Modified: now, Version: "", OnHub: true, ModifiedBy: "MacBook Air")
+        }
+    }
+}
+
+/// Versions grouped the way the history screens list them.
+struct HistorySection {
+    let title: String
+    let versions: [OldVersion]
+}
+
+func historySections(_ versions: [OldVersion], now: Date = .now) -> [HistorySection] {
+    let cal = Calendar.current
+    func title(_ d: Date) -> String {
+        if cal.isDateInToday(d) { return "Today" }
+        if cal.isDateInYesterday(d) { return "Yesterday" }
+        let days = cal.dateComponents([.day], from: cal.startOfDay(for: d), to: cal.startOfDay(for: now)).day ?? 0
+        if days < 7 { return "This week" }
+        if days < 14 { return "Last week" }
+        return cal.isDate(d, equalTo: now, toGranularity: .year)
+            ? d.formatted(.dateTime.month(.wide))
+            : d.formatted(.dateTime.month(.wide).year())
+    }
+    var out: [HistorySection] = []
+    for v in versions {
+        let t = title(v.Modified)
+        if let last = out.last, last.title == t {
+            out[out.count - 1] = HistorySection(title: t, versions: last.versions + [v])
+        } else {
+            out.append(HistorySection(title: t, versions: [v]))
+        }
+    }
+    return out
+}
+
+/// A version's time in its list: "11:32" today or yesterday (the section
+/// says which), "Thu 15 Oct, 20:41" before that.
+func versionTime(_ d: Date) -> String {
+    let cal = Calendar.current
+    if cal.isDateInToday(d) || cal.isDateInYesterday(d) { return d.formatted(date: .omitted, time: .shortened) }
+    return "\(d.formatted(.dateTime.weekday(.abbreviated).day().month(.abbreviated))), \(d.formatted(date: .omitted, time: .shortened))"
+}
+
+extension String {
+    /// "Today at 14:02" reads as "today at 14:02" mid-sentence.
+    var lowercasedFirst: String {
+        hasPrefix("Today") || hasPrefix("Yesterday") ? prefix(1).lowercased() + dropFirst() : self
     }
 }
 

@@ -9,6 +9,7 @@ import SwiftUI
 #endif
 struct MagpieApp: App {
     @StateObject private var model = AppModel()
+    @StateObject private var history = HistoryRequests()
     private let updater = SPUStandardUpdaterController(startingUpdater: true, updaterDelegate: nil, userDriverDelegate: nil)
 
     var body: some Scene {
@@ -18,6 +19,7 @@ struct MagpieApp: App {
         } label: {
             MenuLabel(symbol: menuSymbol)
                 .environmentObject(model)
+                .environmentObject(history)
         }
         .menuBarExtraStyle(.window)
 
@@ -27,6 +29,12 @@ struct MagpieApp: App {
         }
         .windowResizability(.contentSize)
         .windowStyle(.hiddenTitleBar)
+
+        WindowGroup("Version History", id: "history", for: String.self) { $path in
+            HistoryWindow(path: path ?? "")
+                .environmentObject(model)
+        }
+        .windowResizability(.contentSize)
 
         Window("Conflicts", id: "conflicts") {
             ConflictsView()
@@ -55,11 +63,17 @@ struct MagpieApp: App {
 struct MenuLabel: View {
     let symbol: String
     @EnvironmentObject private var model: AppModel
+    @EnvironmentObject private var history: HistoryRequests
     @Environment(\.openWindow) private var openWindow
 
     var body: some View {
         Image(systemName: symbol)
             .accessibilityLabel("Magpie, \(model.headline)")
+            .onReceive(history.$path.compactMap { $0 }) { path in
+                history.path = nil
+                openWindow(id: "history", value: path)
+                NSApp.activate(ignoringOtherApps: true)
+            }
             .task {
                 if model.joined {
                     model.start()

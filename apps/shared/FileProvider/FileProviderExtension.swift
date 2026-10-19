@@ -161,6 +161,18 @@ final class FileProviderExtension: NSObject, NSFileProviderReplicatedExtension, 
     func performAction(identifier actionIdentifier: NSFileProviderExtensionActionIdentifier,
                        onItemsWithIdentifiers itemIdentifiers: [NSFileProviderItemIdentifier],
                        completionHandler: @escaping (Error?) -> Void) -> Progress {
+        #if os(macOS)
+        if actionIdentifier.rawValue == Magpie.historyRequest {
+            // The window is the app's: hand it the file and let it open.
+            if let first = itemIdentifiers.first, let p = path(for: first) {
+                UserDefaults(suiteName: Magpie.appGroup)?.set(p, forKey: Magpie.historyRequest)
+                CFNotificationCenterPostNotification(CFNotificationCenterGetDarwinNotifyCenter(),
+                                                     CFNotificationName(Magpie.historyRequest as CFString), nil, nil, true)
+            }
+            completionHandler(nil)
+            return Progress()
+        }
+        #endif
         let keep = actionIdentifier.rawValue == "dev.mandip.magpie.keep"
         DispatchQueue.global(qos: .userInitiated).async {
             do {

@@ -31,6 +31,9 @@ struct HomeView: View {
                     NavigationLink { KeptView() } label: {
                         row(icon: "arrow.down.circle", title: "Kept downloaded", value: model.kept.isEmpty ? "None" : "\(model.kept.count)")
                     }
+                    NavigationLink { HistoryBrowser() } label: {
+                        row(icon: "clock.arrow.circlepath", title: "Version history")
+                    }
                     NavigationLink { DevicesView() } label: {
                         row(icon: "laptopcomputer", title: "Devices", value: "\(model.devices.count)")
                     }

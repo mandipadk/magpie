@@ -31,6 +31,15 @@ final class Screens: XCTestCase {
             shot(app, "conflict-\(mode)")
             app.swipeDown(velocity: .fast)
 
+            app.buttons.matching(NSPredicate(format: "label CONTAINS 'Version history'")).firstMatch.tap()
+            _ = app.staticTexts["Recently deleted"].waitForExistence(timeout: 5)
+            shot(app, "history-\(mode)")
+            app.buttons.matching(NSPredicate(format: "label CONTAINS 'Lisbon itinerary'")).firstMatch.tap()
+            _ = app.staticTexts["Today"].waitForExistence(timeout: 5)
+            shot(app, "versions-\(mode)")
+            app.navigationBars.buttons.element(boundBy: 0).tap()
+            app.navigationBars.buttons.element(boundBy: 0).tap()
+
             app.buttons.matching(NSPredicate(format: "label CONTAINS 'Devices'")).firstMatch.tap()
             XCTAssert(app.navigationBars["Devices"].waitForExistence(timeout: 5))
             shot(app, "devices-\(mode)")

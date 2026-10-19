@@ -154,7 +154,7 @@ private struct ConflictDialog: View {
 // MARK: Settings
 
 struct SettingsView: View {
-    enum Tab { case general, devices, updates }
+    enum Tab { case general, devices, history, updates }
 
     let updater: SPUUpdater
     @EnvironmentObject private var model: AppModel
@@ -173,6 +173,9 @@ struct SettingsView: View {
             DevicesTab()
                 .tabItem { Label("Devices", systemImage: "laptopcomputer") }
                 .tag(Tab.devices)
+            HistoryTab()
+                .tabItem { Label("History", systemImage: "clock.arrow.circlepath") }
+                .tag(Tab.history)
             UpdatesTab(updater: updater)
                 .tabItem { Label("Updates", systemImage: "arrow.down.circle") }
                 .tag(Tab.updates)

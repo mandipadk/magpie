@@ -24,6 +24,8 @@ final class Screens: XCTestCase {
             ("settings-devices", AnyView(SettingsView(updater: updater, tab: .devices).environmentObject(model))),
             ("settings-updates", AnyView(SettingsView(updater: updater, tab: .updates).environmentObject(model))),
             ("add-device", AnyView(AddDeviceSheet().environmentObject(model).background(window))),
+            ("settings-history", AnyView(SettingsView(updater: updater, tab: .history).environmentObject(model))),
+            ("history", AnyView(HistoryWindow(path: "Trips/Lisbon itinerary.pages").environmentObject(model).background(window))),
         ]
         for (name, view) in screens {
             for dark in [false, true] {

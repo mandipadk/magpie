@@ -44,7 +44,8 @@ final class Item: NSObject, NSFileProviderItem {
     var isUploaded: Bool { entry.OnHub }
     var isUploading: Bool { !entry.OnHub }
 
-    var userInfo: [AnyHashable: Any]? { ["kept": kept] }
+    /// Read by the Finder and Files action rules in project.yml.
+    var userInfo: [AnyHashable: Any]? { ["kept": kept, "dir": entry.Dir] }
 
     // Keeping something downloaded is a content policy on the Mac (macOS 15);
     // iOS has no such policy, so there the extension fetches kept items itself.

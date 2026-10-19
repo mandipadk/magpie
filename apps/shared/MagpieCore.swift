@@ -17,6 +17,9 @@ enum Magpie {
     static let keychainGroup = "UK74VYMUP7.dev.mandip.magpie.shared"
     static let domainID = "magpie"
     static let serviceName = NSFileProviderServiceName("dev.mandip.magpie.service")
+    /// Finder's "Version History…" asks the app (Mac): the path goes in the
+    /// shared defaults under this key, then a Darwin notification of this name.
+    static let historyRequest = "dev.mandip.magpie.history"
 
     static var containerURL: URL {
         FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: appGroup)
