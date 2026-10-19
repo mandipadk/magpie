@@ -205,7 +205,10 @@ echo "Saved on the phone" > "$OUT/from-phone.txt"
 waitfor 60 "the phone's file in Finder" test -e "$CS/From the iPhone.txt"
 ls -lO "$CS" > "$OUT/finder-listing.txt"
 grep -q 'dataless.*From the iPhone.txt' "$OUT/finder-listing.txt" && ok "it arrives as a placeholder (dataless) until opened" || echo "  note: not a placeholder: $(grep 'From the iPhone' "$OUT/finder-listing.txt")"
-cmp -s "$CS/From the iPhone.txt" "$OUT/from-phone.txt" || fail "opening the phone's file on the Mac gave something else"
+# opening it downloads it; the first read can fail while File Provider fetches
+opened() { cat "$CS/From the iPhone.txt" > "$OUT/mac-read.txt" 2>> "$OUT/mac-read.err" && cmp -s "$OUT/mac-read.txt" "$OUT/from-phone.txt"; }
+waitfor 60 "the phone's file to open intact on the Mac" opened
+ls -lO "$CS" >> "$OUT/finder-listing.txt"
 ok "a file saved on the phone opens in Finder intact"
 
 step "5. A conflict shows in the menu bar"
