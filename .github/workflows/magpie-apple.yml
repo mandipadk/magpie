@@ -272,6 +272,36 @@ jobs:
           rm -rf "$RUNNER_TEMP/keys"
           security delete-keychain "$RUNNER_TEMP/signing.keychain-db" 2>/dev/null || true
 
+  e2e:
+    # The shipped Mac app end to end on a fresh Mac: the page's .dmg, a
+    # Sparkle update from the previous build, Finder, a second device and a
+    # conflict (apps/mac/e2e.sh).
+    needs: mac
+    if: github.event_name == 'push' || inputs.publish
+    runs-on: macos-15
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
+        with:
+          go-version-file: go.mod
+      - name: End to end
+        env:
+          GH_TOKEN: ${{ github.token }}
+          E2E_OUT: ${{ runner.temp }}/e2e
+        run: apps/mac/e2e.sh
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        if: always()
+        with:
+          name: e2e-mac
+          # results only: not the disk images, the test hub's keys or the phone's state
+          path: |
+            ${{ runner.temp }}/e2e/*.md
+            ${{ runner.temp }}/e2e/*.txt
+            ${{ runner.temp }}/e2e/*.png
+            ${{ runner.temp }}/e2e/*.log
+          if-no-files-found: ignore
+
   ios:
     needs: engine
     runs-on: macos-15
