@@ -208,7 +208,9 @@ function renderServer(st) {
 
 function renderApps(st) {
   if (st.mac) {
-    $("mac-note").textContent = `${st.mac.version ? `Version ${st.mac.version}, ` : ""}${bytes(st.mac.size)}, macOS 14 or later`;
+    // Opening a new disk image while Magpie runs can hang the Mac (its Finder
+    // extension sees a second copy); installed Magpies update themselves.
+    $("mac-note").textContent = `${st.mac.version ? `Version ${st.mac.version}, ` : ""}${bytes(st.mac.size)}, macOS 14 or later.${st.hub?.devices?.length ? " Already installed? It updates itself; quit Magpie before opening a new download." : ""}`;
     $("mac-act").outerHTML = `<a class="btn ink" id="mac-act" href="${esc(st.mac.url)}">${ICON.dl}Download</a>`;
   } else {
     $("mac-act").textContent = "First build on its way";

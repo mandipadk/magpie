@@ -202,7 +202,15 @@ jobs:
           hdiutil attach -nobrowse -readonly -mountpoint "$MNT" "$RUNNER_TEMP/Magpie.dmg" >/dev/null
           rc=0; apps/mac/check-app.sh "$MNT/Magpie.app" || rc=1
           spctl --assess --type execute -vv "$MNT/Magpie.app" || rc=1
+          # Updates are a zip of this same app, never a disk image: mounting an
+          # image that holds a second copy of the File Provider extension while
+          # Magpie runs hung the owner's Mac (2026-10-19). The app's ticket is
+          # stapled too, so it passes Gatekeeper offline once unzipped.
+          mkdir -p "$RUNNER_TEMP/zip" && ditto "$MNT/Magpie.app" "$RUNNER_TEMP/zip/Magpie.app"
           hdiutil detach "$MNT" >/dev/null
+          for i in 1 2 3 4 5 6; do xcrun stapler staple "$RUNNER_TEMP/zip/Magpie.app" && break; [[ $i == 6 ]] && exit 1; sleep 20; done
+          spctl --assess --type execute -vv "$RUNNER_TEMP/zip/Magpie.app" || rc=1
+          ditto -c -k --sequesterRsrc --keepParent "$RUNNER_TEMP/zip/Magpie.app" "$RUNNER_TEMP/Magpie-$BUILD_NUMBER.zip"
           exit $rc
       - name: Sparkle appcast
         if: steps.devid.outputs.ready == 'true'
@@ -213,13 +221,12 @@ jobs:
           curl -sSL -o "$RUNNER_TEMP/sparkle.tar.xz" "https://github.com/sparkle-project/Sparkle/releases/download/$SPARKLE_VERSION/Sparkle-$SPARKLE_VERSION.tar.xz"
           echo "$SPARKLE_SHA256  $RUNNER_TEMP/sparkle.tar.xz" | shasum -a 256 -c - || { echo "::error::Sparkle tarball checksum mismatch"; exit 1; }
           mkdir -p "$RUNNER_TEMP/sparkle" && tar -xf "$RUNNER_TEMP/sparkle.tar.xz" -C "$RUNNER_TEMP/sparkle"
-          cp "$RUNNER_TEMP/Magpie.dmg" "$RUNNER_TEMP/Magpie-$BUILD_NUMBER.dmg"
           mkdir -p "$RUNNER_TEMP/keys" && printf '%s\n' "$SPARKLE_ED_KEY" > "$RUNNER_TEMP/keys/sparkle"
-          SIG=$("$RUNNER_TEMP/sparkle/bin/sign_update" --ed-key-file "$RUNNER_TEMP/keys/sparkle" "$RUNNER_TEMP/Magpie-$BUILD_NUMBER.dmg")
+          SIG=$("$RUNNER_TEMP/sparkle/bin/sign_update" --ed-key-file "$RUNNER_TEMP/keys/sparkle" "$RUNNER_TEMP/Magpie-$BUILD_NUMBER.zip")
           rm -f "$RUNNER_TEMP/keys/sparkle"
           echo "$SIG"
           VERSION=$(plutil -extract CFBundleShortVersionString raw "$RUNNER_TEMP/export/Magpie.app/Contents/Info.plist")
-          URL="https://github.com/${GITHUB_REPOSITORY}/releases/download/mac-latest/Magpie-$BUILD_NUMBER.dmg"
+          URL="https://github.com/${GITHUB_REPOSITORY}/releases/download/mac-latest/Magpie-$BUILD_NUMBER.zip"
           cat > "$RUNNER_TEMP/appcast.xml" <<EOF
           <?xml version="1.0" encoding="utf-8"?>
           <rss version="2.0" xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle">
@@ -239,7 +246,7 @@ jobs:
           cat "$RUNNER_TEMP/appcast.xml"
           # the signature must verify with the public key the app carries
           PUB=$(plutil -extract SUPublicEDKey raw "$RUNNER_TEMP/export/Magpie.app/Contents/Info.plist")
-          python3 - "$PUB" "$RUNNER_TEMP/Magpie-$BUILD_NUMBER.dmg" "$SIG" <<'PY'
+          python3 - "$PUB" "$RUNNER_TEMP/Magpie-$BUILD_NUMBER.zip" "$SIG" <<'PY'
           import base64, re, subprocess, sys
           pub, path, sig = sys.argv[1:]
           s = re.search(r'edSignature="([^"]+)"', sig).group(1)
@@ -261,10 +268,11 @@ jobs:
           gh release view mac-latest >/dev/null 2>&1 || \
             gh release create mac-latest --title "Magpie for Mac" --prerelease \
               --notes "The latest Magpie for Mac, signed with Developer ID and notarized."
-          gh release upload mac-latest "$RUNNER_TEMP/Magpie.dmg" "$RUNNER_TEMP/Magpie-$BUILD_NUMBER.dmg" "$RUNNER_TEMP/appcast.xml" --clobber
+          gh release upload mac-latest "$RUNNER_TEMP/Magpie.dmg" "$RUNNER_TEMP/Magpie-$BUILD_NUMBER.zip" "$RUNNER_TEMP/appcast.xml" --clobber
           gh release edit mac-latest --notes "The latest Magpie for Mac (build $BUILD_NUMBER), signed with Developer ID and notarized. Built from ${GITHUB_SHA::7}."
-          # keep the three newest numbered images (older installs update from the newest)
-          gh release view mac-latest --json assets -q '.assets[].name' | grep -E '^Magpie-[0-9]+\.dmg$' | sort -t- -k2 -n -r | tail -n +4 | \
+          # keep the three newest update zips (older installs update from the newest);
+          # old numbered disk images are no longer offered, only kept for e2e's "previous build"
+          gh release view mac-latest --json assets -q '.assets[].name' | grep -E '^Magpie-[0-9]+\.zip$' | sort -t- -k2 -n -r | tail -n +4 | \
             while read -r old; do gh release delete-asset mac-latest "$old" -y; done
       - name: Clean up the key and keychain
         if: always()
