@@ -10,6 +10,14 @@ public, and frankfurt:~/code/magpie). Page: https://magpie.mandip.dev (private, 
       page > Add a device on the Mac (or menu bar > Add Device…), scan with Magpie on the iPhone;
       then save on Mac -> Files on the phone. See SCOPE.md.
 
+## iPhone joined (2026-10-19 18:02 UTC), but doesn't stay connected
+- [x] Hub admitted J7RG4PP ("iPhone") at 18:02 with a valid invite (so from the Mac, with the key)
+- [ ] Every iPhone connection ends ~1 s after it opens, closed by the phone (EOF), and the phone
+      still sends its join token, i.e. it never handled the hub's cluster config. Likely the Files
+      extension stopping or being killed (memory?) on the phone; can't see the phone. Asked the
+      owner for the app's status line, Files, the TestFlight build, and any MagpieFiles crash or
+      JetsamEvent entries in Analytics Data.
+
 ## CRITICAL: update from build 10 to 22 hung at Extracting (owner, 2026-10-19 ~15:00)
 - Owner's assistant: build 22's dmg and signature are fine; mounting it with hdiutil on that Mac hung
   and the Mac froze to a black screen. Magpie's File Provider extension was running while the image
