@@ -135,11 +135,22 @@ findcs() { CS=$(find "$HOME/Library/CloudStorage" -maxdepth 1 -iname 'Magpie*' -
 waitfor 90 "Magpie in ~/Library/CloudStorage" findcs
 fileproviderctl domain list > "$OUT/fileprovider-domains.txt" 2>&1 || true
 waitfor 60 "the hub to admit the Mac" bash -c "'$OUT/bin/magpie-hubd' status --home '$HUB' | grep -q '\"connected\": true'"
-open "$CS"; sleep 3; shot "3-finder"
-ok "joined; Magpie is at $CS and in Finder's sidebar (screenshot 3-finder)"
+open "$CS"; sleep 3; shot "3-finder-first-open"
+# A new File Provider starts disabled: Finder shows "Magpie is not enabled"
+# with an Enable button. That's macOS asking the owner once; pluginkit is the
+# same switch.
+pluginkit -m -v -i dev.mandip.magpie.files > "$OUT/pluginkit.txt" 2>&1 || true
+pluginkit -e use -i dev.mandip.magpie.files || true
+sleep 5
+osascript -e 'tell application "Finder" to close every window' || true
+open "$CS"; sleep 5; shot "3-finder"
+pluginkit -m -v -i dev.mandip.magpie.files >> "$OUT/pluginkit.txt" 2>&1 || true
+ok "joined; Magpie is at $CS and in Finder's sidebar (screenshots 3-finder-first-open, 3-finder)"
 
 step "4. Mac save -> phone, phone save -> Mac (on demand)"
-echo "Saved on the Mac at $(date -u +%H:%M:%S)" > "$CS/From the Mac.txt"
+# save <file> <text>: as an app would, retrying while File Provider settles
+save() { for _ in $(seq 60); do printf '%s\n' "$2" > "$1" 2>/dev/null && return 0; sleep 1; done; fail "couldn't save $1"; }
+save "$CS/From the Mac.txt" "Saved on the Mac at $(date -u +%H:%M:%S)"
 open "magpie1:add-device"
 waitfor 30 "Add Device" ui 'get window "Add a Device"'
 sleep 5  # the invite is made when the window opens
@@ -163,7 +174,7 @@ ok "a file saved on the phone opens in Finder intact"
 step "5. A conflict shows in the menu bar"
 # The phone is offline (its process isn't running) while the Mac edits; then
 # it edits the same file from the version it last saw.
-echo "Mac edit" > "$CS/From the Mac.txt"
+save "$CS/From the Mac.txt" "Mac edit"
 sleep 15
 echo "Phone edit" > "$OUT/phone-edit.txt"
 "$OUT/bin/magpie-phone" --dir "$OUT/phone" put-offline "From the Mac.txt" "$OUT/phone-edit.txt"
