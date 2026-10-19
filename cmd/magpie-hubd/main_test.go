@@ -171,6 +171,20 @@ func TestJoinByInvite(t *testing.T) {
 		return lenAny(hist["devices"]) == 3 // the hub and the two devices
 	})
 
+	// An edit puts the old version aside, and the page counts it.
+	cur, err := mac.Stat("hello.txt")
+	if err != nil {
+		t.Fatal(err)
+	}
+	_ = os.WriteFile(src, []byte("hello again from the Mac"), 0o600)
+	if _, err := mac.Put(context.Background(), "hello.txt", src, cur.Version); err != nil {
+		t.Fatal(err)
+	}
+	waitFor(t, "the hub to count the old version", func() bool {
+		s, err := h.status()
+		return err == nil && s.HistoryN == 1 && s.History > 0
+	})
+
 	// Removing the phone locks it out.
 	if err := h.remove(phone.DeviceID()); err != nil {
 		t.Fatal(err)

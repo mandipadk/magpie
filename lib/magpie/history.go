@@ -206,6 +206,9 @@ func (e *Engine) decryptTrailer(bs []byte) (protocol.FileInfo, protocol.FileInfo
 	if err != nil {
 		return protocol.FileInfo{}, protocol.FileInfo{}, fmt.Errorf("magpie: decrypting a version: %w", err)
 	}
+	if !validName(real.Name) {
+		return protocol.FileInfo{}, protocol.FileInfo{}, fmt.Errorf("magpie: a version has a bad name %q", real.Name)
+	}
 	if len(real.Blocks) != len(enc.Blocks) {
 		return protocol.FileInfo{}, protocol.FileInfo{}, errors.New("magpie: a version's block lists don't match")
 	}

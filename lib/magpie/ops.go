@@ -634,6 +634,22 @@ func clean(name string) string {
 	return name
 }
 
+// validName is whether a name from another device is one this engine would
+// make itself: relative, slash-separated, with no "." or ".." in it. The
+// apps turn names into Finder and Files paths, so anything else is dropped.
+func validName(name string) bool { return name != "" && clean(name) == name }
+
+// validFiles drops entries with names validName refuses.
+func validFiles(files []protocol.FileInfo) []protocol.FileInfo {
+	ok := make([]protocol.FileInfo, 0, len(files))
+	for _, f := range files {
+		if validName(f.Name) {
+			ok = append(ok, f)
+		}
+	}
+	return ok
+}
+
 // hashBlocks splits r into blocks of size bs and hashes each, as Syncthing's
 // scanner does (without its file system layer, which the iPhone doesn't need).
 func hashBlocks(ctx context.Context, r io.Reader, bs int) ([]protocol.BlockInfo, error) {

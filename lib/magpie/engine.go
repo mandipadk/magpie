@@ -69,18 +69,18 @@ type Engine struct {
 	store *store
 	out   *outbox
 
-	mu        sync.Mutex
-	conn      protocol.Connection
-	connected chan struct{} // closed while connected; replaced on disconnect
-	paused    bool
-	lastErr   error
-	hubMax    int64 // the hub's index sequence as of its cluster config
-	shared    bool  // the hub shares the folder with us
-	names     map[string]string
-	devices   []DeviceInfo
-	fkey         *[32]byte          // the folder key, derived once (history.go)
+	mu           sync.Mutex
+	conn         protocol.Connection
+	connected    chan struct{} // closed while connected; replaced on disconnect
+	paused       bool
+	lastErr      error
+	hubMax       int64 // the hub's index sequence as of its cluster config
+	shared       bool  // the hub shares the folder with us
+	names        map[string]string
+	devices      []DeviceInfo
+	fkey         *[32]byte             // the folder key, derived once (history.go)
 	versionCache map[string]OldVersion // trailers already read
-	changes   *changeLog
+	changes      *changeLog
 
 	listeners []func(Change)
 	stopped   chan struct{}

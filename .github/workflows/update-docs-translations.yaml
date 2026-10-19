@@ -10,6 +10,7 @@ permissions:
 jobs:
 
   update_transifex_docs:
+    if: github.repository_owner == 'syncthing'
     runs-on: ubuntu-latest
     name: Update translations and documentation
     steps:

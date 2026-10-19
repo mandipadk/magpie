@@ -88,6 +88,7 @@ func (m *model) IndexUpdate(_ protocol.Connection, up *protocol.IndexUpdate) err
 
 func (m *model) apply(files []protocol.FileInfo, full bool, last int64) {
 	e := m.e
+	files = validFiles(files)
 	prev := e.store.applyHub(files, full, last)
 	changed := make([]string, 0, len(prev)+len(files))
 	for name := range prev {

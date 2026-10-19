@@ -514,7 +514,10 @@ func (h *hub) status() (Status, error) {
 		s.Devices = append(s.Devices, Device{ID: d.DeviceID, Name: d.Name, Connected: c.Connected, LastSeen: stats[d.DeviceID].LastSeen, Client: c.ClientVersion})
 	}
 	sort.Slice(s.Devices, func(a, b int) bool { return s.Devices[a].Name < s.Devices[b].Name })
-	_ = filepath.Walk(filepath.Join(h.home, "folder", ".stversions"), func(_ string, fi os.FileInfo, err error) error {
+	_ = filepath.Walk(h.historyDir(), func(_ string, fi os.FileInfo, err error) error {
+		if err == nil && fi.IsDir() && fi.Name() == ".stfolder" {
+			return filepath.SkipDir
+		}
 		if err == nil && fi.Mode().IsRegular() {
 			s.History += fi.Size()
 			s.HistoryN++

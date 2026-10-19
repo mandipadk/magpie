@@ -20,6 +20,10 @@ enum Magpie {
     /// Finder's "Version History…" asks the app (Mac): the path goes in the
     /// shared defaults under this key, then a Darwin notification of this name.
     static let historyRequest = "dev.mandip.magpie.history"
+    /// Who may connect to the extension's service (Mac): only the Magpie app,
+    /// signed by this team. Invites carry the folder's password and invite key.
+    /// apps/mac/check-app.sh checks the shipped app against it.
+    static let appRequirement = #"anchor apple generic and certificate leaf[subject.OU] = "UK74VYMUP7" and identifier "dev.mandip.magpie""#
 
     static var containerURL: URL {
         FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: appGroup)

@@ -19,6 +19,11 @@ final class ServiceSource: NSObject, NSFileProviderServiceSource, NSXPCListenerD
     func makeListenerEndpoint() throws -> NSXPCListenerEndpoint { listener.endpoint }
 
     func listener(_ listener: NSXPCListener, shouldAcceptNewConnection c: NSXPCConnection) -> Bool {
+        #if os(macOS)
+        // Any process that can see a Magpie item could otherwise ask for an
+        // invite; messages from anything but the Magpie app are refused.
+        c.setCodeSigningRequirement(Magpie.appRequirement)
+        #endif
         c.exportedInterface = makeServiceInterface()
         c.exportedObject = self
         c.resume()

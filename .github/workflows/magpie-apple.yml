@@ -34,6 +34,8 @@ env:
   DEVELOPMENT_TEAM: UK74VYMUP7
   BUILD_NUMBER: ${{ github.run_number }}
   SPARKLE_VERSION: 2.6.4
+  # sign_update runs with the Sparkle private key: only this exact tarball
+  SPARKLE_SHA256: 50612a06038abc931f16011d7903b8326a362c1074dabccb718404ce8e585f0b
 
 jobs:
   engine:
@@ -41,8 +43,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
         with:
           go-version-file: go.mod
       - name: Build the hub
@@ -65,14 +67,14 @@ jobs:
       MAC_APP_PROFILE: Magpie Mac Developer ID
       MAC_FILES_PROFILE: Magpie Files Developer ID
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - name: Xcode 26
         run: |
           XC=$(ls -d /Applications/Xcode_26*.app | sort -V | tail -1)
           echo "using $XC"
           sudo xcode-select -s "$XC"
           xcodebuild -version
-      - uses: actions/setup-go@v5
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
         with:
           go-version-file: go.mod
       - name: Engine framework (gomobile)
@@ -89,7 +91,7 @@ jobs:
             -destination 'platform=macOS' CODE_SIGNING_ALLOWED=NO | xcbeautify
         env:
           TEST_RUNNER_SNAPSHOT_DIR: ${{ runner.temp }}/screens
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         if: always()
         with:
           name: screens-mac
@@ -207,6 +209,7 @@ jobs:
         run: |
           [[ -n "$SPARKLE_ED_KEY" ]] || { echo "::error::no SPARKLE_ED_KEY: updates would not verify"; exit 1; }
           curl -sSL -o "$RUNNER_TEMP/sparkle.tar.xz" "https://github.com/sparkle-project/Sparkle/releases/download/$SPARKLE_VERSION/Sparkle-$SPARKLE_VERSION.tar.xz"
+          echo "$SPARKLE_SHA256  $RUNNER_TEMP/sparkle.tar.xz" | shasum -a 256 -c - || { echo "::error::Sparkle tarball checksum mismatch"; exit 1; }
           mkdir -p "$RUNNER_TEMP/sparkle" && tar -xf "$RUNNER_TEMP/sparkle.tar.xz" -C "$RUNNER_TEMP/sparkle"
           cp "$RUNNER_TEMP/Magpie.dmg" "$RUNNER_TEMP/Magpie-$BUILD_NUMBER.dmg"
           mkdir -p "$RUNNER_TEMP/keys" && printf '%s\n' "$SPARKLE_ED_KEY" > "$RUNNER_TEMP/keys/sparkle"
@@ -242,7 +245,7 @@ jobs:
           Ed25519PublicKey.from_public_bytes(base64.b64decode(pub)).verify(base64.b64decode(s), open(path, "rb").read())
           print("appcast signature verifies with the app's SUPublicEDKey")
           PY
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         if: steps.devid.outputs.ready == 'true'
         with:
           name: magpie-mac-dmg
@@ -277,14 +280,14 @@ jobs:
       IOS_APP_PROFILE: Magpie iOS App Store
       IOS_FILES_PROFILE: Magpie Files iOS App Store
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - name: Xcode 26 (App Store Connect requires the iOS 26 SDK)
         run: |
           XC=$(ls -d /Applications/Xcode_26*.app | sort -V | tail -1)
           echo "using $XC"
           sudo xcode-select -s "$XC"
           xcodebuild -version
-      - uses: actions/setup-go@v5
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
         with:
           go-version-file: go.mod
       - name: Engine framework (gomobile)
@@ -310,7 +313,7 @@ jobs:
           mkdir -p "$RUNNER_TEMP/screens"
           [[ -d "$RUNNER_TEMP/screens.xcresult" ]] && xcrun xcresulttool export attachments --path "$RUNNER_TEMP/screens.xcresult" --output-path "$RUNNER_TEMP/screens" || true
           ls -la "$RUNNER_TEMP/screens"
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         if: always()
         with:
           name: screens-iphone
