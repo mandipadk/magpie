@@ -69,7 +69,7 @@ struct DeviceInfo: Codable, Hashable, Identifiable {
     var Name: String
     var ThisOne: Bool
     var Hub: Bool
-    var id: String { ID }
+    var id: String { self.ID }
 }
 
 enum Keep: Int { case both = 0, original = 1, copy = 2 }

@@ -46,13 +46,12 @@ final class Item: NSObject, NSFileProviderItem {
 
     var userInfo: [AnyHashable: Any]? { ["kept": kept] }
 
-    #if os(macOS)
-    @available(macOS 15.0, *)
-    var contentPolicy: NSFileProviderContentPolicy { kept ? .downloadEagerlyAndKeepDownloaded : .inherited }
-    #else
-    @available(iOS 18.0, *)
-    var contentPolicy: NSFileProviderContentPolicy { kept ? .downloadEagerlyAndKeepDownloaded : .inherited }
-    #endif
+    // The property exists from macOS 14 and iOS 17; keeping something downloaded
+    // (eager download that survives eviction) arrived in macOS 15 and iOS 18.
+    var contentPolicy: NSFileProviderContentPolicy {
+        if #available(macOS 15.0, iOS 18.0, *), kept { return .downloadEagerlyAndKeepDownloaded }
+        return .inherited
+    }
 }
 
 extension MobileEngine {

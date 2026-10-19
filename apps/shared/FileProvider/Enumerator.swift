@@ -42,7 +42,7 @@ final class Enumerator: NSObject, NSFileProviderEnumerator {
             let e = try EngineHost.shared.get(domain: domain)
             let since = String(data: anchor.rawValue, encoding: .utf8) ?? ""
             struct Changes: Decodable { var paths: [String]; var next: String; var ok: Bool }
-            let c = try JSONDecoder().decode(Changes.self, from: Data(e.changesSince(since).utf8))
+            let c = try JSONDecoder().decode(Changes.self, from: Data(e.changes(since: since).utf8))
             guard c.ok else {
                 observer.finishEnumeratingWithError(NSFileProviderError(.syncAnchorExpired))
                 return
