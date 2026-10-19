@@ -133,9 +133,12 @@ final class AppModel: ObservableObject {
             guard let manager = NSFileProviderManager(for: Self.domain) else { throw JoinLink.Failure("Magpie isn't set up in Files yet.") }
             // Asked of the manager, not through the folder's URL: an iPhone app
             // can't open the Files location, so the URL route never connected there.
-            guard let service = try await manager.getService(named: Magpie.serviceName, for: .rootContainer) else {
-                throw JoinLink.Failure("Magpie in Files didn't answer.")
+            let found: NSFileProviderService? = try await withCheckedThrowingContinuation { cont in
+                manager.getService(named: Magpie.serviceName, for: .rootContainer) { service, error in
+                    if let error { cont.resume(throwing: error) } else { cont.resume(returning: service) }
+                }
             }
+            guard let service = found else { throw JoinLink.Failure("Magpie in Files didn't answer.") }
             let c = try await service.fileProviderConnection()
             c.remoteObjectInterface = makeServiceInterface()
             c.invalidationHandler = { [weak self] in
