@@ -9,6 +9,19 @@ public, and frankfurt:~/code/magpie). Page: https://magpie.mandip.dev (private, 
 - [ ] iPhone (app already installed): page > Add a device on the Mac (or menu bar > Add Device…),
       scan with Magpie on the iPhone; then save on Mac -> Files on the phone. See SCOPE.md.
 
+## CRITICAL: update from build 10 to 22 hung at Extracting (owner, 2026-10-19 ~15:00)
+- Owner's assistant: build 22's dmg and signature are fine; mounting it with hdiutil on that Mac hung
+  and the Mac froze to a black screen. Magpie's File Provider extension was running while the image
+  held a second copy of it. Kestrel's dmg update worked on the same Mac.
+- [x] Live appcast emptied (no update offered) at ~15:10 UTC; old copy kept in the scratchpad
+- [x] Updates now ship as Magpie-N.zip (stapled app), never a disk image; the page's Magpie.dmg is
+      for first installs only, and says to quit Magpie before opening a new download
+- [x] One engine per device's files (flock); a second extension copy gets ErrBusy (TestDataDirLock)
+- [x] Gate: CI publishes appcast-candidate.xml; the e2e job updates a running, joined build 25
+      (last dmg build) with it and only then makes it appcast.xml
+- [ ] e2e green on that path, then the live appcast; then the owner checks for updates
+- Not known: what exactly froze the Mac (no access to it). Not repeated on purpose.
+
 ## Critic round (2026-10-19, 14:00) and the owner's page correction
 - [x] Page "Add a device": the owner meant the page's button, gone once a device existed. A page link
       can't carry the encryption key (the hub never has it), so the button opens the Mac's Add Device
