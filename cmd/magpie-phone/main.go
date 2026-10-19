@@ -26,6 +26,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"runtime/debug"
 	"time"
 
 	"github.com/syncthing/syncthing/lib/magpie"
@@ -33,6 +34,7 @@ import (
 
 func main() {
 	log.SetFlags(0)
+	debug.SetMemoryLimit(24 << 20) // as lib/magpie/mobile sets it for the apps
 	dir := flag.String("dir", "phone", "this device's state")
 	timeout := flag.Duration("timeout", 2*time.Minute, "how long to wait for each step")
 	flag.Parse()
@@ -49,6 +51,8 @@ func main() {
 		check(err)
 		check(os.MkdirAll(*dir, 0o700))
 		cfg := magpie.ConfigFromInvite(in, filepath.Join(*dir, "data"), "iPhone (e2e)")
+		// as the iPhone app does: the key derived once, kept with the config
+		cfg.FolderKey = magpie.DeriveFolderKey(cfg.FolderID, cfg.Password)
 		bs, _ := json.Marshal(cfg)
 		check(os.WriteFile(cfgFile, bs, 0o600))
 		e := open(cfgFile)
