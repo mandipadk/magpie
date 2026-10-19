@@ -23,7 +23,8 @@ final class Screens: XCTestCase {
         for dark in [false, true] {
             let mode = dark ? "dark" : "light"
             let app = launch(dark: dark)
-            XCTAssert(app.staticTexts["Up to date"].waitForExistence(timeout: 10))
+            // sample data has a conflict, which leads the status
+            XCTAssert(app.staticTexts.containing(NSPredicate(format: "label CONTAINS 'need'")).firstMatch.waitForExistence(timeout: 10))
             shot(app, "home-\(mode)")
 
             app.buttons.matching(NSPredicate(format: "label CONTAINS 'Budget.numbers'")).firstMatch.tap()
