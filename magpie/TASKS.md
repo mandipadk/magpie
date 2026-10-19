@@ -6,8 +6,8 @@ Finder and Files. Working copy: chicago:~/code/magpie (pushes to frankfurt:~/cod
 
 ## Waiting on the owner (asked 2026-10-19)
 - [x] Repo public (owner chose): github.com/mandipadk/magpie, default branch magpie
-- [ ] Oracle ingress TCP+UDP 22000 (errand ffcbaa, running)
-- [ ] Root install on Frankfurt: `MAGPIE_ADDR=92.5.139.56:22000 magpie/deploy/install.sh`
+- [ ] Oracle ingress TCP+UDP 22000: errand ffcbaa failed (console signed out); asked owner to sign in, then re-run it
+- [x] Root install on Frankfurt done 2026-10-19: hub + hubd active, firewall ok, hub FO2NSXU-…; host iptables passes 22000, Oracle list still blocks it
       (power sudo timed out on the server side; re-ask)
 - [x] IOS_DEV_P12/PASSWORD (CI's lasting dev key, ~/.config/kestrel/ci-dev) and SPARKLE_ED_KEY set
 - [ ] MAC_DEVID_P12/PASSWORD and ASC_KEY_ID/ISSUER_ID/KEY_P8: Kestrel's were typed straight into its
