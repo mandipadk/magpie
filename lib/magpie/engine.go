@@ -56,6 +56,17 @@ type Config struct {
 	JoinToken string
 	// InviteKey lets this device make invites for others.
 	InviteKey []byte
+	// FolderKey is the key derived from Password (scrypt, 32 MiB), kept so
+	// that processes short on memory skip deriving it. See DeriveFolderKey.
+	FolderKey []byte
+}
+
+// DeriveFolderKey derives the folder key from the password, as Syncthing
+// does. Run it where memory is plentiful (the app) and keep the result in
+// Config.FolderKey.
+func DeriveFolderKey(folderID, password string) []byte {
+	k := protocol.NewKeyGenerator().KeyFromPassword(folderID, password)
+	return append([]byte(nil), k[:]...)
 }
 
 // Engine is one device's view of the folder.
@@ -130,12 +141,20 @@ func New(cfg Config) (*Engine, error) {
 	if err != nil {
 		return nil, err
 	}
+	keyGen := protocol.NewKeyGenerator()
+	var fkey *[32]byte
+	if len(cfg.FolderKey) == protocol.FolderKeySize {
+		fkey = new([32]byte)
+		copy(fkey[:], cfg.FolderKey)
+		keyGen.SetFolderKey(cfg.FolderID, cfg.Password, fkey)
+	}
 	e := &Engine{
 		cfg:       cfg,
 		cert:      cert,
 		myID:      protocol.NewDeviceID(cert.Certificate[0]),
 		hubID:     hubID,
-		keyGen:    protocol.NewKeyGenerator(),
+		keyGen:    keyGen,
+		fkey:      fkey,
 		store:     st,
 		out:       ob,
 		connected: make(chan struct{}),

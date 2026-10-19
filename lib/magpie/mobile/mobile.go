@@ -14,11 +14,17 @@ import (
 	"encoding/json"
 	"errors"
 	"path/filepath"
+	"runtime/debug"
 	"sync"
 	"time"
 
 	"github.com/syncthing/syncthing/lib/magpie"
+	"github.com/syncthing/syncthing/lib/protocol"
 )
+
+// iOS ends a File Provider extension that uses too much memory; ask Go's
+// collector to keep the heap well under that.
+func init() { debug.SetMemoryLimit(24 << 20) }
 
 // Listener hears about changes. Kinds: 0 changed, 1 uploaded, 2 conflicted,
 // 3 status. paths is a JSON array.
@@ -48,6 +54,23 @@ type config struct {
 	DeviceName string `json:"deviceName"`
 	JoinToken  string `json:"joinToken,omitempty"`
 	InviteKey  []byte `json:"inviteKey"`
+	FolderKey  []byte `json:"folderKey,omitempty"`
+}
+
+// PrepareConfig adds the derived folder key to a kept config that lacks it,
+// and returns the config to keep. The app calls it (it has the memory for
+// scrypt); the File Provider extension then never derives the key.
+func PrepareConfig(configJSON string) (string, error) {
+	var c config
+	if err := json.Unmarshal([]byte(configJSON), &c); err != nil {
+		return "", err
+	}
+	if len(c.FolderKey) == protocol.FolderKeySize {
+		return configJSON, nil
+	}
+	c.FolderKey = magpie.DeriveFolderKey(c.FolderID, c.Password)
+	bs, err := json.Marshal(c)
+	return string(bs), err
 }
 
 // ConfigFromLink turns a magpie1: link into the config to keep. The first
@@ -58,7 +81,8 @@ func ConfigFromLink(link, deviceName string) (string, error) {
 		return "", err
 	}
 	c := magpie.ConfigFromInvite(in, "", deviceName)
-	bs, err := json.Marshal(config{c.HubID, c.HubAddr, c.FolderID, c.Password, c.DeviceName, c.JoinToken, c.InviteKey})
+	bs, err := json.Marshal(config{c.HubID, c.HubAddr, c.FolderID, c.Password, c.DeviceName, c.JoinToken, c.InviteKey,
+		magpie.DeriveFolderKey(c.FolderID, c.Password)})
 	return string(bs), err
 }
 
@@ -77,6 +101,7 @@ func Open(configJSON, dataDir string) (*Engine, error) {
 		DeviceName: c.DeviceName,
 		JoinToken:  c.JoinToken,
 		InviteKey:  c.InviteKey,
+		FolderKey:  c.FolderKey,
 	})
 	if err != nil {
 		return nil, err

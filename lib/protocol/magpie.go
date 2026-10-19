@@ -19,3 +19,15 @@ func EncryptName(name string, folderKey *[keySize]byte) string {
 func DecryptName(name string, folderKey *[keySize]byte) (string, error) {
 	return decryptName(name, folderKey)
 }
+
+// FolderKeySize is the length of a folder key.
+const FolderKeySize = keySize
+
+// SetFolderKey seeds the cache with a folder key derived earlier, so a
+// process with little memory (an iOS File Provider extension) never runs
+// scrypt, which takes 32 MiB at once.
+func (g *KeyGenerator) SetFolderKey(folderID, password string, key *[keySize]byte) {
+	g.mut.Lock()
+	defer g.mut.Unlock()
+	g.folderKeys.Add(folderKeyCacheKey{folderID, password}, key)
+}
