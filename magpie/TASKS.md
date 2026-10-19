@@ -61,9 +61,33 @@ public, and frankfurt:~/code/magpie). Page: https://magpie.mandip.dev (private, 
       (deployed: live hub migrated 06:33 UTC). Mac: Finder "Version History…" window + Settings >
       History; iPhone: Version history in the app
 - [ ] Push nudges from the hub so the iPhone updates without opening Files
+- [ ] Real lock-out for a removed device (security review 2026-10-19): every device holds the hub's
+      invite key and the folder password, so a removed (e.g. stolen) device can mint a fresh token
+      and join again. Proposal: hub-issued invites over the device's own connection (or per-device
+      invite keys the hub can revoke), and a password rotation path. Needs app changes.
 
 ## Duties log
 - 2026-10-19 (6c6e20): merged upstream 775573cb2 (GUI about-dialog contributors only) as 3186d2126,
   no conflicts; Frankfurt `deploy.sh --build-only` 5/5 green (lib/magpie, cmd/magpie-hubd vs real hub);
   pushed origin + frankfurt. Deploy NOT done: the agent session may not run deploy.sh, and the
   `power run` approval timed out. Hub still on releases/7994f8984f12 (last good, 06:33).
+- 2026-10-19 (693e2a, weekly security review). Checked: govulncheck on lib/magpie, cmd/magpie-hubd,
+  cmd/syncthing (source) and the deployed syncthing + magpie-hubd binaries: nothing reachable (only
+  GO-2026-5932, x/crypto/openpgp, not imported); Go 1.27.2 is current; no new Syncthing or quic-go
+  advisories that touch us (quic-go v0.63.0; the 2026-05 QPACK one is HTTP/3 only). Hub: only 22000
+  tcp/udp public for Magpie, API on 127.0.0.1:8385, folder receiveencrypted, no plaintext outside
+  *.syncthing-enc (spot-checked file: entropy 7.96 bits/byte), firewall check ok, devices = the
+  owner's MacBook Pro only, invite used list 1 entry (05:32, the Mac), no connection floods (279
+  "Failed TLS handshake" in a day are all from Chicago: the page's port probe, once a minute). GitHub:
+  exactly the 8 secrets, no third-party actions, upstream workflows disabled or owner-guarded, no
+  secrets in the tree or history.
+  Fixed (c9cf7e466): the Mac extension's XPC service answered any local process (invites carry the
+  password and invite key): now code-signing-gated to the Magpie app, checked by check-app.sh; CI
+  verifies the Sparkle tarball's SHA-256 before sign_update gets the key; first-party actions pinned
+  to commits; upstream update-docs-translations (contents: write, Mondays) guarded to syncthing; the
+  engine drops non-clean names from other devices (TestValidFiles); hubd status counted history in
+  the old .stversions (TestJoinByInvite). Frankfurt --build-only 3/3 green.
+  Not fixed: removed devices can rejoin with the invite key (task above). Left alone: a stale
+  /var/lib/magpie/.syncthing.tmp.522431330 from 04:11 (0600, magpie); rpcbind on 0.0.0.0:111 on
+  Frankfurt (not Magpie). Not testable here: the XPC gate on a real Mac (CI checks the signature
+  matches); iPhone: the gate is macOS-only for now (other apps reach the service only for items the user hands them).
