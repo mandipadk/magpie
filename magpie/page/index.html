@@ -194,9 +194,10 @@ function renderServer(st) {
   $("setup-title").textContent = first ? "Set up your first device" : "Add a device";
   $("setup-note").textContent = first
     ? "Paste this link into Magpie, or scan it with your iPhone. It works once, for 15 minutes. This first device makes the encryption key; add the rest from Magpie on that device."
-    : onMac
-      ? "Opens Add Device in Magpie on this Mac, with a code to scan from Magpie on your iPhone (tap Join). The code carries your encryption key, which only your devices have, so it has to come from the Mac rather than this page."
-      : "Open this page on your Mac and choose Add a device, or click Magpie in the Mac's menu bar and choose Add Device…. The code carries your encryption key, which only your devices have, so it has to come from the Mac.";
+    : (onMac
+      ? "Opens Add Device in Magpie on this Mac, with a code to scan from Magpie on your iPhone (tap Join)."
+      : "Open this page on your Mac and choose Add a device, or click Magpie in the Mac's menu bar and choose Add Device….")
+      + " Your first device's link came from this page because there was no encryption key yet; that device made it. A new device needs that key, and only your devices have it, so its code comes from the Mac. If nothing happens, update Magpie on the Mac first.";
   $("add-open").hidden = first || !onMac;
   $("make").parentElement.hidden = !first;
   if (!first) $("made").classList.remove("on");
