@@ -355,15 +355,16 @@ func TestHubEmptyAndRepeatedEdits(t *testing.T) {
 }
 
 // Old versions come back from the hub's history, decrypted only on the
-// devices: listed newest first, fetched intact, restored as a new edit; a
-// deleted file can be brought back. The hub's history stays ciphertext.
+// devices: listed, fetched intact, restored as a new edit; a deleted file
+// can be brought back. The hub's history stays ciphertext. (The hub keeps
+// at most one version per 30 seconds in the first hour, so edits here make
+// one old version each.)
 func TestHubVersionHistory(t *testing.T) {
 	h, mac, phone := twoDevices(t)
 	ctx := context.Background()
 
 	drafts := [][]byte{
-		[]byte("Budget, first draft\n"),
-		bytes.Repeat([]byte("Budget, second draft with a lot more rows.\n"), 12000), // ~0.5 MB, several blocks
+		bytes.Repeat([]byte("Budget, first draft with a lot of rows.\n"), 12000), // ~0.5 MB, several blocks
 		[]byte("Budget, final\n"),
 	}
 	base := ""
@@ -377,31 +378,28 @@ func TestHubVersionHistory(t *testing.T) {
 			en, err := mac.Stat("Money/Budget.txt")
 			return err == nil && en.OnHub && en.Version == base
 		})
-		time.Sleep(1100 * time.Millisecond) // the versioner tags by the second
 	}
 
 	var versions []OldVersion
-	waitFor(t, "the phone to see two old versions", func() bool {
+	waitFor(t, "the phone to see the old version", func() bool {
 		v, err := phone.Versions(ctx, "Money/Budget.txt")
 		versions = v
-		return err == nil && len(v) == 2
+		return err == nil && len(v) == 1
 	})
-	for i, want := range [][]byte{drafts[1], drafts[0]} {
-		v := versions[i]
-		if v.Path != "Money/Budget.txt" || v.Size != int64(len(want)) || v.ModifiedBy != "MacBook Air" {
-			t.Fatalf("version %d: %+v", i, v)
-		}
-		dst := filepath.Join(t.TempDir(), "v")
-		if _, err := phone.FetchVersion(ctx, v.ID, dst); err != nil {
-			t.Fatalf("fetch version %d: %v", i, err)
-		}
-		if got, _ := os.ReadFile(dst); !bytes.Equal(got, want) {
-			t.Fatalf("version %d came back as %d bytes, want %d", i, len(got), len(want))
-		}
+	v := versions[0]
+	if v.Path != "Money/Budget.txt" || v.Size != int64(len(drafts[0])) || v.ModifiedBy != "MacBook Air" || v.Kept.IsZero() {
+		t.Fatalf("version: %+v", v)
+	}
+	dst := filepath.Join(t.TempDir(), "v")
+	if _, err := phone.FetchVersion(ctx, v.ID, dst); err != nil {
+		t.Fatalf("fetch version: %v", err)
+	}
+	if got, _ := os.ReadFile(dst); !bytes.Equal(got, drafts[0]) {
+		t.Fatalf("the version came back as %d bytes, want %d", len(got), len(drafts[0]))
 	}
 
 	// Restore the first draft from the phone; the Mac gets it as the file.
-	if _, err := phone.Restore(ctx, versions[1].ID); err != nil {
+	if _, err := phone.Restore(ctx, v.ID); err != nil {
 		t.Fatal(err)
 	}
 	waitFor(t, "the Mac to have the first draft back", func() bool {
