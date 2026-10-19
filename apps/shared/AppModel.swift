@@ -21,6 +21,8 @@ final class AppModel: ObservableObject {
     /// macOS starts a new File Provider switched off until the owner clicks
     /// Enable in Finder; the menu says so (MenuPanel).
     @Published var finderOff = false
+    /// Why the app couldn't reach the extension's service, shown under the status.
+    @Published private(set) var connectProblem: String?
 
     private var proxy: MagpieService?
     private var connection: NSXPCConnection?
@@ -128,10 +130,12 @@ final class AppModel: ObservableObject {
 
     private func connect() async {
         do {
-            guard let manager = NSFileProviderManager(for: Self.domain) else { return }
-            let root = try await manager.getUserVisibleURL(for: .rootContainer)
-            let services = try await FileManager.default.fileProviderServicesForItem(at: root)
-            guard let service = services[Magpie.serviceName] else { return }
+            guard let manager = NSFileProviderManager(for: Self.domain) else { throw JoinLink.Failure("Magpie isn't set up in Files yet.") }
+            // Asked of the manager, not through the folder's URL: an iPhone app
+            // can't open the Files location, so the URL route never connected there.
+            guard let service = try await manager.getService(named: Magpie.serviceName, for: .rootContainer) else {
+                throw JoinLink.Failure("Magpie in Files didn't answer.")
+            }
             let c = try await service.fileProviderConnection()
             c.remoteObjectInterface = makeServiceInterface()
             c.invalidationHandler = { [weak self] in
@@ -143,9 +147,11 @@ final class AppModel: ObservableObject {
             proxy = c.remoteObjectProxyWithErrorHandler { _ in
                 Task { @MainActor in self.proxy = nil; self.reachable = false }
             } as? MagpieService
+            connectProblem = nil
             refresh()
         } catch {
             reachable = false
+            connectProblem = error.localizedDescription
         }
     }
 
@@ -283,6 +289,7 @@ final class AppModel: ObservableObject {
     }
 
     var detail: String {
+        if let connectProblem, !reachable, !sample { return connectProblem }
         if status.Paused { return "Nothing syncs until you resume." }
         if status.UploadsLeft > 0 { return "\(humanBytes(status.UploadBytes)) left" }
         if !status.Connected && !status.LastError.isEmpty && !sample { return "Keeps trying in the background." }
