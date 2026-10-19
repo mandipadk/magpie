@@ -27,7 +27,9 @@ func (m *model) ClusterConfig(_ protocol.Connection, cc *protocol.ClusterConfig)
 			continue
 		}
 		names := map[string]string{}
+		var devices []DeviceInfo
 		for _, d := range f.Devices {
+			devices = append(devices, DeviceInfo{ID: d.ID.String(), Name: d.Name, Hub: d.ID == e.hubID})
 			if d.ID == e.hubID {
 				e.store.resetHub(d.IndexID)
 				e.mu.Lock()
@@ -40,6 +42,7 @@ func (m *model) ClusterConfig(_ protocol.Connection, cc *protocol.ClusterConfig)
 		}
 		e.mu.Lock()
 		e.names = names
+		e.devices = devices
 		e.mu.Unlock()
 		e.setShared(true)
 		return nil

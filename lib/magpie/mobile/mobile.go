@@ -286,3 +286,23 @@ func mapErr(err error) error {
 	}
 	return err
 }
+
+// Anchor is the change log's position, for ChangesSince.
+func (m *Engine) Anchor() string { return m.e.Anchor() }
+
+// ChangesSince returns {"paths": [...], "next": anchor, "ok": bool}; ok
+// false means list everything again.
+func (m *Engine) ChangesSince(anchor string) string {
+	paths, next, ok := m.e.ChangesSince(anchor)
+	if paths == nil {
+		paths = []string{}
+	}
+	return js(struct {
+		Paths []string `json:"paths"`
+		Next  string   `json:"next"`
+		OK    bool     `json:"ok"`
+	}{paths, next, ok})
+}
+
+// Devices lists the devices sharing the folder as JSON.
+func (m *Engine) Devices() string { return js(m.e.Devices()) }

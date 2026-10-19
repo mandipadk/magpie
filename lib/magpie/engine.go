@@ -77,6 +77,8 @@ type Engine struct {
 	hubMax    int64 // the hub's index sequence as of its cluster config
 	shared    bool  // the hub shares the folder with us
 	names     map[string]string
+	devices   []DeviceInfo
+	changes   *changeLog
 
 	listeners []func(Change)
 	stopped   chan struct{}
@@ -136,6 +138,7 @@ func New(cfg Config) (*Engine, error) {
 		out:       ob,
 		connected: make(chan struct{}),
 		stopped:   make(chan struct{}),
+		changes:   newChangeLog(),
 	}
 	return e, nil
 }
@@ -162,6 +165,9 @@ func (e *Engine) OnChange(f func(Change)) {
 }
 
 func (e *Engine) emit(c Change) {
+	if c.Kind == Changed && len(c.Paths) > 0 {
+		e.changes.add(c.Paths)
+	}
 	e.mu.Lock()
 	ls := append([]func(Change){}, e.listeners...)
 	e.mu.Unlock()
