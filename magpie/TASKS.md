@@ -18,7 +18,8 @@ public, and frankfurt:~/code/magpie). Page: https://magpie.mandip.dev (private, 
 - [x] Fix (build 40): the app derives the key once and keeps it in the keychain config (folderKey);
       kept configs get it when the app starts; the extension never runs scrypt; Go memory limit
       24 MiB. Reconnect peak measured 19.8 MB (was 53). TestPrepareConfig; e2e green
-- [ ] Owner: TestFlight build 40, open the Magpie app once (adds the key), then Files
+- [x] After build 40: the iPhone connected at 18:32:04 UTC and stayed connected (3+ min, no drops);
+      hub sees its state as valid and sent it the index (35 KB). Files on the phone not seen by me
 
 ## CRITICAL: update from build 10 to 22 hung at Extracting (owner, 2026-10-19 ~15:00)
 - Owner's assistant: build 22's dmg and signature are fine; mounting it with hdiutil on that Mac hung
