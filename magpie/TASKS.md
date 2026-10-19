@@ -75,8 +75,9 @@ public, and frankfurt:~/code/magpie). Page: https://magpie.mandip.dev (private, 
 ## Duties log
 - 2026-10-19 (6c6e20): merged upstream 775573cb2 (GUI about-dialog contributors only) as 3186d2126,
   no conflicts; Frankfurt `deploy.sh --build-only` 5/5 green (lib/magpie, cmd/magpie-hubd vs real hub);
-  pushed origin + frankfurt. Deploy NOT done: the agent session may not run deploy.sh, and the
-  `power run` approval timed out. Hub still on releases/7994f8984f12 (last good, 06:33).
+  pushed origin + frankfurt. Deployed after the owner allowed it (`power run`, ~14:00 UTC):
+  deploy.sh built 20f7f3b12deb (merge + the security review's fixes), tests green, installed;
+  status: v2.1.7-rc.3.dev.43.g20f7f3b1-magpie, folderErrors 0, encrypted, 6 files.
 - 2026-10-19 (693e2a, weekly security review). Checked: govulncheck on lib/magpie, cmd/magpie-hubd,
   cmd/syncthing (source) and the deployed syncthing + magpie-hubd binaries: nothing reachable (only
   GO-2026-5932, x/crypto/openpgp, not imported); Go 1.27.2 is current; no new Syncthing or quic-go
