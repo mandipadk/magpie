@@ -1,0 +1,12 @@
+[
+  {"goto": "https://magpie.mandip.dev"},
+  {"wait": "text=Server"},
+  {"see": "text=Stored, encrypted"},
+  {"see": "text=Older versions kept"},
+  {"see": "text=Devices"},
+  {"see": "text=Get Magpie"},
+  {"see": "text=Set up your first device"},
+  {"click": "text=Dark"},
+  {"see": "text=Light"},
+  {"click": "text=Light"}
+]
