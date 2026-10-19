@@ -22,6 +22,14 @@ struct MenuPanel: View {
                 }
                 .padding(.horizontal, 14)
                 .padding(.vertical, 4)
+                if model.finderOff {
+                    Divider().padding(.horizontal, 14).padding(.vertical, 5)
+                    row(icon: "exclamationmark.triangle", tint: .orange, title: "Magpie is off in Finder",
+                        subtitle: "Click Enable at the top of the Magpie window") {
+                        Button("Open…") { model.revealInFinder() }
+                            .controlSize(.small)
+                    }
+                }
                 if !model.conflicts.isEmpty {
                     Divider().padding(.horizontal, 14).padding(.vertical, 5)
                     section("Needs you")
@@ -66,7 +74,7 @@ struct MenuPanel: View {
         }
         .padding(.vertical, 6)
         .frame(width: 320)
-        .onAppear { model.refresh() }
+        .onAppear { model.refresh(); model.checkFinder() }
     }
 
     private var otherDevices: [DeviceInfo] {

@@ -130,4 +130,12 @@ extension AppModel {
     }
 
     static var deviceName: String { Host.current().localizedName ?? "Mac" }
+
+    /// Whether the owner has switched Magpie on in Finder yet.
+    func checkFinder() {
+        NSFileProviderManager.getDomainsWithCompletionHandler { domains, _ in
+            let off = domains.first { $0.identifier == AppModel.domain.identifier }.map { !$0.userEnabled } ?? false
+            Task { @MainActor in if off != self.finderOff { self.finderOff = off } }
+        }
+    }
 }

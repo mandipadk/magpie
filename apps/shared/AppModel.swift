@@ -15,6 +15,9 @@ final class AppModel: ObservableObject {
     @Published var problem: String?
     /// Set by a magpie1:history link (the Magpie page's "Browse in Magpie").
     @Published var showHistory = false
+    /// macOS starts a new File Provider switched off until the owner clicks
+    /// Enable in Finder; the menu says so (MenuPanel).
+    @Published var finderOff = false
 
     private var proxy: MagpieService?
     private var connection: NSXPCConnection?
