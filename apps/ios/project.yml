@@ -49,6 +49,9 @@ targets:
         PRODUCT_BUNDLE_IDENTIFIER: dev.mandip.magpie
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
+        # the engine, only to derive the folder key once (see AppModel.prepare)
+        FRAMEWORK_SEARCH_PATHS: [$(SRCROOT)/../build]
+        OTHER_LDFLAGS: [-framework, Mobile, -lresolv]
       configs:
         Release:
           CODE_SIGN_STYLE: Manual
@@ -56,6 +59,8 @@ targets:
           PROVISIONING_PROFILE_SPECIFIER: ${IOS_APP_PROFILE}
     dependencies:
       - target: MagpieFiles
+      - framework: ../build/Mobile.xcframework
+        embed: false
   MagpieFiles:
     type: app-extension
     platform: iOS

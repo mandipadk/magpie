@@ -3,6 +3,9 @@
 import FileProvider
 import Foundation
 import SwiftUI
+#if os(iOS) && canImport(Mobile)
+import Mobile
+#endif
 
 @MainActor
 final class AppModel: ObservableObject {
@@ -38,7 +41,7 @@ final class AppModel: ObservableObject {
     func join(link: String, deviceName: String) async {
         problem = nil
         do {
-            let config = try JoinLink.config(from: link, deviceName: deviceName)
+            let config = try await Task.detached { Self.prepare(try JoinLink.config(from: link, deviceName: deviceName)) }.value
             guard ConfigStore.save(config) else { throw JoinLink.Failure("Couldn't save the key to the keychain.") }
             try await NSFileProviderManager.add(Self.domain)
             joined = true
@@ -48,10 +51,33 @@ final class AppModel: ObservableObject {
         }
     }
 
+    /// The kept config with the folder key derived from the password. iOS
+    /// ends a File Provider extension that runs scrypt (32 MB at once), so
+    /// the app derives it here, once. Configs kept before this get it on the
+    /// next launch (upgradeConfig).
+    nonisolated static func prepare(_ config: String) -> String {
+        #if os(iOS) && canImport(Mobile)
+        var err: NSError?
+        let out = MobilePrepareConfig(config, &err)
+        if err == nil, !out.isEmpty { return out }
+        #endif
+        return config
+    }
+
+    private func upgradeConfig() {
+        guard !sample, joined else { return }
+        Task.detached(priority: .utility) {
+            guard let kept = ConfigStore.load() else { return }
+            let prepared = Self.prepare(kept)
+            if prepared != kept { ConfigStore.update(prepared) }
+        }
+    }
+
     // MARK: Live updates
 
     func start() {
         guard !sample, joined else { return }
+        upgradeConfig()
         timer?.invalidate()
         timer = Timer.scheduledTimer(withTimeInterval: 2, repeats: true) { [weak self] _ in
             Task { @MainActor in self?.refresh() }

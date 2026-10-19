@@ -150,6 +150,13 @@ enum ConfigStore {
         return SecItemAdd(q as CFDictionary, nil) == errSecSuccess
     }
 
+    /// Replaces the kept config in place (no moment without one, which the
+    /// extension might read).
+    @discardableResult
+    static func update(_ json: String) -> Bool {
+        SecItemUpdate(base() as CFDictionary, [kSecValueData as String: Data(json.utf8)] as CFDictionary) == errSecSuccess
+    }
+
     static func clear() { SecItemDelete(base() as CFDictionary) }
 
     private static func base() -> [String: Any] {
