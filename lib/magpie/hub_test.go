@@ -317,3 +317,33 @@ func TestHubDeleteKeepsHistory(t *testing.T) {
 		return n > 0
 	})
 }
+
+// Empty files and many small edits go through like any other.
+func TestHubEmptyAndRepeatedEdits(t *testing.T) {
+	_, mac, phone := twoDevices(t)
+	ctx := context.Background()
+	if _, err := mac.Put(ctx, "empty.txt", writeTemp(t, nil), ""); err != nil {
+		t.Fatal(err)
+	}
+	var base string
+	for i := 0; i < 10; i++ {
+		en, err := mac.Put(ctx, "log.txt", writeTemp(t, []byte(fmt.Sprintf("line %d", i))), base)
+		if err != nil {
+			t.Fatal(err)
+		}
+		base = en.Version
+	}
+	waitFor(t, "the phone to see the last edit", func() bool {
+		en, err := phone.Stat("log.txt")
+		return err == nil && en.Version == base
+	})
+	if got := string(fetch(t, phone, "log.txt")); got != "line 9" {
+		t.Fatalf("phone has %q", got)
+	}
+	if got := fetch(t, phone, "empty.txt"); len(got) != 0 {
+		t.Fatalf("empty file has %d bytes", len(got))
+	}
+	if len(mac.Conflicts()) != 0 {
+		t.Fatalf("sequential edits made conflicts: %v", mac.Conflicts())
+	}
+}

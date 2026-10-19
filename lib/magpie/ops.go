@@ -12,6 +12,7 @@ import (
 	"crypto/sha256"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"path"
 	"path/filepath"
@@ -20,7 +21,6 @@ import (
 	"time"
 
 	"github.com/syncthing/syncthing/lib/protocol"
-	"github.com/syncthing/syncthing/lib/scanner"
 )
 
 // ErrChanged means the file changed elsewhere since the caller last saw it.
@@ -212,7 +212,7 @@ func (e *Engine) write(ctx context.Context, name, src string) (Entry, error) {
 		return Entry{}, err
 	}
 	bs := protocol.BlockSize(st.Size())
-	blocks, err := scanner.Blocks(ctx, fd, bs, st.Size(), nil)
+	blocks, err := hashBlocks(ctx, fd, bs)
 	fd.Close()
 	if err != nil {
 		return Entry{}, err
@@ -257,7 +257,7 @@ func fileSame(f protocol.FileInfo, src string) bool {
 	if err != nil || st.Size() != f.Size || f.IsDirectory() {
 		return false
 	}
-	blocks, err := scanner.Blocks(context.Background(), fd, f.BlockSize(), st.Size(), nil)
+	blocks, err := hashBlocks(context.Background(), fd, f.BlockSize())
 	if err != nil {
 		return false
 	}
@@ -627,4 +627,35 @@ func clean(name string) string {
 		return ""
 	}
 	return name
+}
+
+// hashBlocks splits r into blocks of size bs and hashes each, as Syncthing's
+// scanner does (without its file system layer, which the iPhone doesn't need).
+func hashBlocks(ctx context.Context, r io.Reader, bs int) ([]protocol.BlockInfo, error) {
+	var blocks []protocol.BlockInfo
+	buf := make([]byte, bs)
+	var offset int64
+	for {
+		if err := ctx.Err(); err != nil {
+			return nil, err
+		}
+		n, err := io.ReadFull(r, buf)
+		if n > 0 {
+			sum := sha256.Sum256(buf[:n])
+			blocks = append(blocks, protocol.BlockInfo{Hash: sum[:], Offset: offset, Size: n})
+			offset += int64(n)
+		}
+		if err == io.EOF || err == io.ErrUnexpectedEOF {
+			break
+		}
+		if err != nil {
+			return nil, err
+		}
+	}
+	if len(blocks) == 0 {
+		// an empty file has one empty block, as the scanner makes it
+		sum := sha256.Sum256(nil)
+		blocks = append(blocks, protocol.BlockInfo{Hash: sum[:]})
+	}
+	return blocks, nil
 }
