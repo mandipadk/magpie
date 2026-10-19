@@ -42,7 +42,6 @@ targets:
     entitlements:
       path: App/Magpie.entitlements
       properties:
-        com.apple.security.application-groups: [group.dev.mandip.magpie]
         keychain-access-groups: [$(AppIdentifierPrefix)dev.mandip.magpie.shared]
     settings:
       base:
@@ -73,7 +72,6 @@ targets:
           NSExtensionPointIdentifier: com.apple.fileprovider-nonui
           NSExtensionPrincipalClass: $(PRODUCT_MODULE_NAME).FileProviderExtension
           NSExtensionFileProviderSupportsEnumeration: true
-          NSExtensionFileProviderDocumentGroup: group.dev.mandip.magpie
           NSExtensionFileProviderActions:
             - NSExtensionFileProviderActionIdentifier: dev.mandip.magpie.keep
               NSExtensionFileProviderActionName: Keep Downloaded
@@ -84,7 +82,6 @@ targets:
     entitlements:
       path: Files/MagpieFiles.entitlements
       properties:
-        com.apple.security.application-groups: [group.dev.mandip.magpie]
         keychain-access-groups: [$(AppIdentifierPrefix)dev.mandip.magpie.shared]
     settings:
       base:

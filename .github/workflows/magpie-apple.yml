@@ -386,7 +386,7 @@ jobs:
           EXT="$APP/PlugIns/MagpieFiles.appex"
           test -d "$EXT" || { echo "::error::no File Provider extension in the app"; exit 1; }
           plutil -extract NSExtension.NSExtensionPointIdentifier raw "$EXT/Info.plist" | grep -qx com.apple.fileprovider-nonui
-          codesign -d --entitlements - "$EXT" 2>/dev/null | tee /dev/stderr | grep -q group.dev.mandip.magpie
+          codesign -d --entitlements - "$EXT" 2>/dev/null | tee /dev/stderr | grep -q dev.mandip.magpie.shared
           if otool -L "$EXT/MagpieFiles" | tail -n +2 | grep -vE '^\s+(/usr/lib/|/System/Library/|@rpath/libswift)'; then
             echo "::error::the extension links a library that is not part of iOS"; exit 1
           fi
