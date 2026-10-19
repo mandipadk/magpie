@@ -125,6 +125,10 @@ jobs:
           ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
           ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
         run: |
+          # Saved key IDs can carry a trailing newline; Xcode won't accept that.
+          ASC_KEY_ID=$(printf '%s' "$ASC_KEY_ID" | tr -d '[:space:]'); ASC_ISSUER_ID=$(printf '%s' "$ASC_ISSUER_ID" | tr -d '[:space:]')
+          echo "::add-mask::$ASC_KEY_ID"; echo "::add-mask::$ASC_ISSUER_ID"
+          { echo "ASC_KEY_ID=$ASC_KEY_ID"; echo "ASC_ISSUER_ID=$ASC_ISSUER_ID"; } >> "$GITHUB_ENV"
           mkdir -p "$RUNNER_TEMP/keys"
           if [[ "$ASC_KEY_P8" == -----BEGIN* ]]; then printf '%s' "$ASC_KEY_P8"; else printf '%s' "$ASC_KEY_P8" | base64 --decode; fi > "$RUNNER_TEMP/keys/AuthKey_$ASC_KEY_ID.p8"
           python3 -m venv "$RUNNER_TEMP/venv" && "$RUNNER_TEMP/venv/bin/pip" -q install 'pyjwt[crypto]'
@@ -170,9 +174,6 @@ jobs:
         run: apps/mac/check-app.sh "$RUNNER_TEMP/export/Magpie.app"
       - name: Disk image, notarized
         if: steps.devid.outputs.ready == 'true'
-        env:
-          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
-          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
         run: |
           STAGE="$RUNNER_TEMP/dmg"
           mkdir -p "$STAGE"
@@ -187,7 +188,8 @@ jobs:
             xcrun notarytool log "$ID" --key "$RUNNER_TEMP/keys/AuthKey_$ASC_KEY_ID.p8" --key-id "$ASC_KEY_ID" --issuer "$ASC_ISSUER_ID"
             echo "::error::notarization was not accepted"; exit 1
           fi
-          xcrun stapler staple "$RUNNER_TEMP/Magpie.dmg"
+          # The ticket can take a moment to reach Apple's CDN, and the lookup sometimes drops.
+          for i in 1 2 3 4 5 6; do xcrun stapler staple "$RUNNER_TEMP/Magpie.dmg" && break; [[ $i == 6 ]] && exit 1; sleep 20; done
           xcrun stapler validate "$RUNNER_TEMP/Magpie.dmg"
           spctl --assess --type open --context context:primary-signature -vv "$RUNNER_TEMP/Magpie.dmg"
           # and the app exactly as the owner gets it, from the stapled disk image
@@ -313,16 +315,18 @@ jobs:
         env:
           ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
           ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
         run: |
           [[ -n "$ASC_KEY_P8" ]] || { echo "::notice::No App Store Connect key yet; stopping before signing"; echo "NO_KEY=1" >> "$GITHUB_ENV"; exit 0; }
+          # Saved key IDs can carry a trailing newline; Xcode won't accept that.
+          ASC_KEY_ID=$(printf '%s' "$ASC_KEY_ID" | tr -d '[:space:]'); ASC_ISSUER_ID=$(printf '%s' "$ASC_ISSUER_ID" | tr -d '[:space:]')
+          echo "::add-mask::$ASC_KEY_ID"; echo "::add-mask::$ASC_ISSUER_ID"
+          { echo "ASC_KEY_ID=$ASC_KEY_ID"; echo "ASC_ISSUER_ID=$ASC_ISSUER_ID"; } >> "$GITHUB_ENV"
           mkdir -p "$RUNNER_TEMP/keys"
           if [[ "$ASC_KEY_P8" == -----BEGIN* ]]; then printf '%s' "$ASC_KEY_P8"; else printf '%s' "$ASC_KEY_P8" | base64 --decode; fi > "$RUNNER_TEMP/keys/AuthKey_$ASC_KEY_ID.p8"
           python3 -m venv "$RUNNER_TEMP/venv" && "$RUNNER_TEMP/venv/bin/pip" -q install 'pyjwt[crypto]'
       - name: Bundle IDs and capabilities
         if: env.NO_KEY != '1'
-        env:
-          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
-          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
         run: |
           export ASC_KEY_PATH="$RUNNER_TEMP/keys/AuthKey_$ASC_KEY_ID.p8"
           PY="$RUNNER_TEMP/venv/bin/python"
@@ -353,9 +357,6 @@ jobs:
           security list-keychains -d user -s "$KC" $(security list-keychains -d user | tr -d '"')
       - name: Archive
         if: env.NO_KEY != '1'
-        env:
-          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
-          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
         run: |
           set -o pipefail
           cd apps/ios
@@ -379,9 +380,6 @@ jobs:
           fi
       - name: Upload to TestFlight
         if: env.NO_KEY != '1' && (github.event_name == 'push' || inputs.publish)
-        env:
-          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
-          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
         run: |
           cat > "$RUNNER_TEMP/export.plist" <<EOF
           <?xml version="1.0" encoding="UTF-8"?>
