@@ -398,6 +398,19 @@ func TestHubVersionHistory(t *testing.T) {
 		t.Fatalf("the version came back as %d bytes, want %d", len(got), len(drafts[0]))
 	}
 
+	// Restore it as a copy beside the file; the file itself stays.
+	cp, err := phone.RestoreCopy(ctx, v.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.HasPrefix(cp.Path, "Money/Budget (restored ") || !strings.HasSuffix(cp.Path, ").txt") {
+		t.Fatalf("restored copy named %q", cp.Path)
+	}
+	waitFor(t, "the Mac to see the copy", func() bool {
+		_, err := mac.Stat(cp.Path)
+		return err == nil && bytes.Equal(fetch(t, mac, cp.Path), drafts[0]) && bytes.Equal(fetch(t, mac, "Money/Budget.txt"), drafts[1])
+	})
+
 	// Restore the first draft from the phone; the Mac gets it as the file.
 	if _, err := phone.Restore(ctx, v.ID); err != nil {
 		t.Fatal(err)

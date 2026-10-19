@@ -306,3 +306,62 @@ func (m *Engine) ChangesSince(anchor string) string {
 
 // Devices lists the devices sharing the folder as JSON.
 func (m *Engine) Devices() string { return js(m.e.Devices()) }
+
+// Versions returns the hub's old versions of path as JSON, newest first.
+func (m *Engine) Versions(path string) (string, error) {
+	ctx, cancel := ctxFor(60 * 1000)
+	defer cancel()
+	v, err := m.e.Versions(ctx, path)
+	if err != nil {
+		return "", mapErr(err)
+	}
+	return js(v), nil
+}
+
+// Deleted returns files deleted from the folder that the hub still keeps,
+// as JSON, most recently deleted first.
+func (m *Engine) Deleted() (string, error) {
+	ctx, cancel := ctxFor(60 * 1000)
+	defer cancel()
+	v, err := m.e.Deleted(ctx)
+	if err != nil {
+		return "", mapErr(err)
+	}
+	return js(v), nil
+}
+
+// FetchVersion writes an old version to dst (to look at it) and returns it
+// as JSON.
+func (m *Engine) FetchVersion(id, dst string) (string, error) {
+	ctx, cancel := ctxFor(0)
+	defer cancel()
+	v, err := m.e.FetchVersion(ctx, id, dst)
+	if err != nil {
+		return "", mapErr(err)
+	}
+	return js(v), nil
+}
+
+// Restore makes an old version the current content of its file again and
+// returns the file's entry as JSON.
+func (m *Engine) Restore(id string) (string, error) {
+	ctx, cancel := ctxFor(0)
+	defer cancel()
+	en, err := m.e.Restore(ctx, id)
+	if err != nil {
+		return "", mapErr(err)
+	}
+	return js(en), nil
+}
+
+// RestoreCopy puts an old version beside its file and returns the copy's
+// entry as JSON.
+func (m *Engine) RestoreCopy(id string) (string, error) {
+	ctx, cancel := ctxFor(0)
+	defer cancel()
+	en, err := m.e.RestoreCopy(ctx, id)
+	if err != nil {
+		return "", mapErr(err)
+	}
+	return js(en), nil
+}

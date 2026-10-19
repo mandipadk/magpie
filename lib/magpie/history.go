@@ -23,6 +23,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"path"
 	"sort"
 	"strings"
 	"time"
@@ -36,8 +37,8 @@ import (
 // HistoryFolder is the ID of the hub's history folder for a Magpie folder.
 func HistoryFolder(folderID string) string { return folderID + "-history" }
 
-// versionTimeFormat is how the hub's versioner tags a version (in UTC; the
-// hub runs with TZ=UTC).
+// versionTimeFormat is how the hub's versioner tags a version, in the hub's
+// local time: UTC on Frankfurt (and TZ=UTC in the tests).
 const versionTimeFormat = "20060102-150405"
 
 // OldVersion is one old version of a file, kept by the hub.
@@ -324,4 +325,29 @@ func (e *Engine) Restore(ctx context.Context, id string) (Entry, error) {
 		base = cur.Version.String()
 	}
 	return e.Put(ctx, v.Path, tmp.Name(), base)
+}
+
+// RestoreCopy puts version id beside its file as "Name (restored 19 Oct
+// 14.02).ext", leaving the current file as it is.
+func (e *Engine) RestoreCopy(ctx context.Context, id string) (Entry, error) {
+	tmp, err := os.CreateTemp(e.cfg.DataDir, "restore-*")
+	if err != nil {
+		return Entry{}, err
+	}
+	tmp.Close()
+	defer os.Remove(tmp.Name())
+	v, err := e.FetchVersion(ctx, id, tmp.Name())
+	if err != nil {
+		return Entry{}, err
+	}
+	ext := path.Ext(v.Path)
+	stem := strings.TrimSuffix(v.Path, ext)
+	name := fmt.Sprintf("%s (restored %s)%s", stem, v.Modified.Local().Format("2 Jan 15.04"), ext)
+	for i := 2; ; i++ {
+		if f, ok := e.store.current(name); !ok || f.IsDeleted() {
+			break
+		}
+		name = fmt.Sprintf("%s (restored %s, %d)%s", stem, v.Modified.Local().Format("2 Jan 15.04"), i, ext)
+	}
+	return e.Put(ctx, name, tmp.Name(), "")
 }
