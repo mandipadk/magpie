@@ -182,7 +182,7 @@ func TestJoinByInvite(t *testing.T) {
 	}
 	waitFor(t, "the hub to count the old version", func() bool {
 		s, err := h.status()
-		return err == nil && s.HistoryN == 1 && s.History > 0
+		return err == nil && s.HistoryN == 1 && s.History > 0 && time.Since(s.HistoryAt) < time.Hour
 	})
 
 	// Removing the phone locks it out.
@@ -193,6 +193,35 @@ func TestJoinByInvite(t *testing.T) {
 	time.Sleep(4 * time.Second)
 	if phone.Status().Accepted && phone.Status().Connected {
 		t.Fatal("a removed device got back in")
+	}
+
+	// The removed phone still holds the old invite key: an invite it makes
+	// (say, for a new device ID on the same stolen phone) is refused.
+	stolen, err := phone.Invite()
+	if err != nil {
+		t.Fatal(err)
+	}
+	thief := join(t, stolen, "Thief")
+	time.Sleep(4 * time.Second)
+	if thief.Status().Accepted {
+		t.Fatal("an invite from a removed device let a new device in")
+	}
+
+	// The Mac learns the new key from the hub, and its invites still work.
+	newKey, _ := h.inviteKey()
+	waitFor(t, "the Mac to learn the new invite key", func() bool {
+		link, err := mac.Invite()
+		in, _ := magpie.ParseInvite(link)
+		return err == nil && bytes.Equal(in.Key, newKey)
+	})
+	invite, err = mac.Invite()
+	if err != nil {
+		t.Fatal(err)
+	}
+	ipad := join(t, invite, "iPad")
+	waitFor(t, "the iPad to be admitted with the new key", func() bool { return ready(ipad) })
+	if s, _ := h.status(); s.HistoryN != 1 {
+		t.Fatalf("the published key counted as history: %d versions", s.HistoryN)
 	}
 }
 

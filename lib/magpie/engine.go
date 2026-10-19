@@ -322,17 +322,21 @@ func (e *Engine) helloName() string {
 	return HelloName(e.cfg.DeviceName, e.cfg.JoinToken)
 }
 
-// Invite makes a single-use link for another device to join.
+// Invite makes a single-use link for another device to join, with the
+// newest invite key the hub has published (see keys.go).
 func (e *Engine) Invite() (string, error) {
-	if len(e.cfg.InviteKey) == 0 {
+	ctx, cancel := context.WithTimeout(context.Background(), inviteKeyTimeout)
+	defer cancel()
+	key := e.inviteKey(ctx)
+	if len(key) == 0 {
 		return "", errors.New("magpie: this device can't make invites")
 	}
 	return Invite{
 		HubID:    e.hubID.String(),
 		HubAddr:  e.cfg.HubAddr,
 		FolderID: e.cfg.FolderID,
-		Key:      e.cfg.InviteKey,
-		Token:    NewToken(e.cfg.InviteKey, time.Now()),
+		Key:      key,
+		Token:    NewToken(key, time.Now()),
 		Password: e.cfg.Password,
 	}.Link(), nil
 }

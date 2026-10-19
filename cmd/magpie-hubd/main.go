@@ -24,6 +24,7 @@ package main
 
 import (
 	"bytes"
+	"encoding/base64"
 	"encoding/json"
 	"encoding/xml"
 	"errors"
@@ -228,6 +229,46 @@ func (h *hub) api(method, path string, body, out any) error {
 
 func (h *hub) inviteKey() ([]byte, error) { return os.ReadFile(filepath.Join(h.dir(), "invite.key")) }
 
+// publishedKey is the invite key as the devices still in Magpie read it,
+// from the history folder (see lib/magpie/keys.go).
+func (h *hub) publishedKey() string {
+	return filepath.Join(h.historyDir(), filepath.FromSlash(magpie.InviteKeyFile))
+}
+
+// publishKey puts the current invite key where the devices can read it.
+func (h *hub) publishKey() error {
+	key, err := h.inviteKey()
+	if err != nil {
+		return err
+	}
+	want := []byte(base64.RawURLEncoding.EncodeToString(key))
+	if have, err := os.ReadFile(h.publishedKey()); err == nil && bytes.Equal(have, want) {
+		return nil
+	}
+	if err := os.MkdirAll(filepath.Dir(h.publishedKey()), 0o700); err != nil {
+		return err
+	}
+	// Syncthing skips .syncthing.*.tmp, so it never shares a half-written key.
+	tmp := filepath.Join(filepath.Dir(h.publishedKey()), ".syncthing.invite-key.tmp")
+	if err := os.WriteFile(tmp, want, 0o600); err != nil {
+		return err
+	}
+	return os.Rename(tmp, h.publishedKey())
+}
+
+// rotateKey makes a new invite key, so that every invite made with the old
+// one, and every device still holding it, stops working.
+func (h *hub) rotateKey() error {
+	tmp := filepath.Join(h.dir(), "invite.key.tmp")
+	if err := os.WriteFile(tmp, magpie.NewInviteKey(), 0o600); err != nil {
+		return err
+	}
+	if err := os.Rename(tmp, filepath.Join(h.dir(), "invite.key")); err != nil {
+		return err
+	}
+	return h.publishKey()
+}
+
 func (h *hub) setupLink(addr string) (string, error) {
 	key, err := h.inviteKey()
 	if err != nil {
@@ -359,6 +400,9 @@ func (h *hub) add(id, name string) error {
 // go to historyDir, and every device of the folder can read its history.
 // Hubs set up before history existed get it here.
 func (h *hub) ensureHistory() error {
+	if err := h.publishKey(); err != nil {
+		return err
+	}
 	var folder map[string]any
 	if err := h.api("GET", "/rest/config/folders/"+folderID, nil, &folder); err != nil {
 		return err
@@ -438,7 +482,16 @@ func (h *hub) remove(id string) error {
 	if devID.String() == st.MyID {
 		return errors.New("that is the hub itself")
 	}
-	return h.api("DELETE", "/rest/config/devices/"+devID.String(), nil, nil)
+	if err := h.api("DELETE", "/rest/config/devices/"+devID.String(), nil, nil); err != nil {
+		return err
+	}
+	// The removed device holds the invite key; without a new one it could
+	// make itself an invite and come straight back.
+	if err := h.rotateKey(); err != nil {
+		return err
+	}
+	log.Printf("magpie-hubd: removed %s; invite key replaced", devID.Short())
+	return h.ensureHistory()
 }
 
 // Device is one device as the page shows it.
@@ -460,6 +513,7 @@ type Status struct {
 	Bytes      int64     `json:"bytes"`
 	History    int64     `json:"historyBytes"`
 	HistoryN   int       `json:"historyFiles"`
+	HistoryAt  time.Time `json:"historyLatest,omitzero"`
 	Encrypted  bool      `json:"encrypted"`
 	Generated  time.Time `json:"generated"`
 	FolderErrs int       `json:"folderErrors"`
@@ -515,12 +569,19 @@ func (h *hub) status() (Status, error) {
 	}
 	sort.Slice(s.Devices, func(a, b int) bool { return s.Devices[a].Name < s.Devices[b].Name })
 	_ = filepath.Walk(h.historyDir(), func(_ string, fi os.FileInfo, err error) error {
-		if err == nil && fi.IsDir() && fi.Name() == ".stfolder" {
+		if err == nil && fi.IsDir() && (fi.Name() == ".stfolder" || fi.Name() == ".magpie") {
 			return filepath.SkipDir
 		}
 		if err == nil && fi.Mode().IsRegular() {
 			s.History += fi.Size()
 			s.HistoryN++
+			// Encrypted files all carry a fixed 2009 mtime; the versioner's
+			// "~20061019-143000" suffix says when the version was kept.
+			if i := strings.LastIndex(fi.Name(), "~"); i >= 0 {
+				if t, err := time.Parse("20060102-150405", fi.Name()[i+1:]); err == nil && t.After(s.HistoryAt) {
+					s.HistoryAt = t
+				}
+			}
 		}
 		return nil
 	})
