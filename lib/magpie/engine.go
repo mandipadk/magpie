@@ -51,6 +51,11 @@ type Config struct {
 	Password string
 	// DeviceName is how this device introduces itself ("MacBook Air").
 	DeviceName string
+	// JoinToken is the invite token this device joins with; it is sent
+	// until the hub accepts the device.
+	JoinToken string
+	// InviteKey lets this device make invites for others.
+	InviteKey []byte
 }
 
 // Engine is one device's view of the folder.
@@ -257,7 +262,7 @@ func (e *Engine) connectOnce(ctx context.Context) error {
 
 	_ = tc.SetDeadline(time.Now().Add(20 * time.Second))
 	_, err = protocol.ExchangeHello(tc, protocol.Hello{
-		DeviceName:    e.cfg.DeviceName,
+		DeviceName:    e.helloName(),
 		ClientName:    "magpie",
 		ClientVersion: Version,
 		Timestamp:     time.Now().UnixNano(),
@@ -300,6 +305,28 @@ func (e *Engine) connectOnce(ctx context.Context) error {
 	e.mu.Unlock()
 	e.emit(Change{Kind: StatusChanged})
 	return errors.New("magpie: disconnected")
+}
+
+func (e *Engine) helloName() string {
+	if e.store.isJoined() {
+		return e.cfg.DeviceName
+	}
+	return HelloName(e.cfg.DeviceName, e.cfg.JoinToken)
+}
+
+// Invite makes a single-use link for another device to join.
+func (e *Engine) Invite() (string, error) {
+	if len(e.cfg.InviteKey) == 0 {
+		return "", errors.New("magpie: this device can't make invites")
+	}
+	return Invite{
+		HubID:    e.hubID.String(),
+		HubAddr:  e.cfg.HubAddr,
+		FolderID: e.cfg.FolderID,
+		Key:      e.cfg.InviteKey,
+		Token:    NewToken(e.cfg.InviteKey, time.Now()),
+		Password: e.cfg.Password,
+	}.Link(), nil
 }
 
 func (e *Engine) clusterConfig() *protocol.ClusterConfig {

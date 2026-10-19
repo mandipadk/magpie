@@ -19,7 +19,7 @@ import (
 )
 
 // store is the engine's small database: the hub's decrypted index, our own
-// announced index and the conflicts we have reported. It is kept in memory
+// announced index and what is pinned. It is kept in memory
 // and written whole on every change; a folder of tens of thousands of files
 // is a few megabytes.
 type store struct {
@@ -40,8 +40,8 @@ type storeData struct {
 
 	// Pinned paths (files or directories) are kept downloaded.
 	Pinned map[string]bool
-	// Conflicts maps a conflict copy's path to the original's path.
-	Conflicts map[string]string
+	// Joined is set once the hub has accepted this device.
+	Joined bool
 }
 
 func openStore(file string) (*store, error) {
@@ -64,9 +64,6 @@ func openStore(file string) (*store, error) {
 	}
 	if s.data.Pinned == nil {
 		s.data.Pinned = map[string]bool{}
-	}
-	if s.data.Conflicts == nil {
-		s.data.Conflicts = map[string]string{}
 	}
 	if s.data.LocalIndexID == 0 {
 		s.data.LocalIndexID = protocol.NewIndexID()
@@ -255,6 +252,21 @@ func dirOrDot(dir string) string {
 	return dir
 }
 
+func (s *store) isJoined() bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.data.Joined
+}
+
+func (s *store) setJoined() {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if !s.data.Joined {
+		s.data.Joined = true
+		_ = s.saveLocked()
+	}
+}
+
 func (s *store) setPinned(name string, on bool) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -286,30 +298,6 @@ func (s *store) pinned() []string {
 		out = append(out, p)
 	}
 	sort.Strings(out)
-	return out
-}
-
-func (s *store) addConflict(copyName, original string) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	s.data.Conflicts[copyName] = original
-	_ = s.saveLocked()
-}
-
-func (s *store) removeConflict(copyName string) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	delete(s.data.Conflicts, copyName)
-	_ = s.saveLocked()
-}
-
-func (s *store) conflicts() map[string]string {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	out := make(map[string]string, len(s.data.Conflicts))
-	for k, v := range s.data.Conflicts {
-		out[k] = v
-	}
 	return out
 }
 

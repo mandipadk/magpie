@@ -600,6 +600,9 @@ func (e *Engine) Status() Status {
 }
 
 func (e *Engine) setShared(on bool) {
+	if on {
+		e.store.setJoined()
+	}
 	e.mu.Lock()
 	e.shared = on
 	e.mu.Unlock()
