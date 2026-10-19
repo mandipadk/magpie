@@ -6,7 +6,7 @@
 #   - the iPhone app (app + File Provider extension), sent to TestFlight
 # Each job also keeps pictures of its screens (sample data) as an artifact.
 #
-# Secrets: ASC_KEY_ID, ASC_ISSUER_ID, ASC_KEY_P8 (App Store Connect API key),
+# Secrets: ASC_KEY_ID, ASC_ISSUER_ID, ASC_KEY_P8 (App Store Connect API key; the .p8 as is or base64),
 # MAC_DEVID_P12/MAC_DEVID_PASSWORD (Developer ID), IOS_DEV_P12/IOS_DEV_PASSWORD
 # (CI's lasting development key), SPARKLE_ED_KEY (signs Mac updates).
 name: magpie-apple
@@ -45,6 +45,9 @@ jobs:
         with:
           go-version-file: go.mod
       - name: Build the hub
+        # The checkout has no upstream tags to version from; the test hub needs any valid version.
+        env:
+          VERSION: v0.0.0-magpie+ci${{ github.run_number }}
         run: go run build.go -no-upgrade build syncthing
       - name: Engine and invite tests
         run: |
@@ -123,7 +126,7 @@ jobs:
           ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
         run: |
           mkdir -p "$RUNNER_TEMP/keys"
-          printf '%s' "$ASC_KEY_P8" > "$RUNNER_TEMP/keys/AuthKey_$ASC_KEY_ID.p8"
+          if [[ "$ASC_KEY_P8" == -----BEGIN* ]]; then printf '%s' "$ASC_KEY_P8"; else printf '%s' "$ASC_KEY_P8" | base64 --decode; fi > "$RUNNER_TEMP/keys/AuthKey_$ASC_KEY_ID.p8"
           python3 -m venv "$RUNNER_TEMP/venv" && "$RUNNER_TEMP/venv/bin/pip" -q install 'pyjwt[crypto]'
           export ASC_KEY_PATH="$RUNNER_TEMP/keys/AuthKey_$ASC_KEY_ID.p8"
           PY="$RUNNER_TEMP/venv/bin/python"
@@ -313,7 +316,7 @@ jobs:
         run: |
           [[ -n "$ASC_KEY_P8" ]] || { echo "::notice::No App Store Connect key yet; stopping before signing"; echo "NO_KEY=1" >> "$GITHUB_ENV"; exit 0; }
           mkdir -p "$RUNNER_TEMP/keys"
-          printf '%s' "$ASC_KEY_P8" > "$RUNNER_TEMP/keys/AuthKey_$ASC_KEY_ID.p8"
+          if [[ "$ASC_KEY_P8" == -----BEGIN* ]]; then printf '%s' "$ASC_KEY_P8"; else printf '%s' "$ASC_KEY_P8" | base64 --decode; fi > "$RUNNER_TEMP/keys/AuthKey_$ASC_KEY_ID.p8"
           python3 -m venv "$RUNNER_TEMP/venv" && "$RUNNER_TEMP/venv/bin/pip" -q install 'pyjwt[crypto]'
       - name: Bundle IDs and capabilities
         if: env.NO_KEY != '1'
