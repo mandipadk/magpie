@@ -14,9 +14,12 @@ struct JoinView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
+            // on a light tile, as in the app icon, so the ink bird reads in dark mode
             Image("Mark")
                 .resizable()
-                .frame(width: 48, height: 48)
+                .frame(width: 40, height: 40)
+                .padding(6)
+                .background(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(Color(white: 0.965)))
                 .accessibilityHidden(true)
             VStack(alignment: .leading, spacing: 4) {
                 Text("Join your Magpie").font(.title3).fontWeight(.semibold)
