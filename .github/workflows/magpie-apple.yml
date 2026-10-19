@@ -41,8 +41,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
         with:
           go-version-file: go.mod
       - name: Build the hub
@@ -65,14 +65,14 @@ jobs:
       MAC_APP_PROFILE: Magpie Mac Developer ID
       MAC_FILES_PROFILE: Magpie Files Developer ID
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Xcode 26
         run: |
           XC=$(ls -d /Applications/Xcode_26*.app | sort -V | tail -1)
           echo "using $XC"
           sudo xcode-select -s "$XC"
           xcodebuild -version
-      - uses: actions/setup-go@v5
+      - uses: actions/setup-go@v7
         with:
           go-version-file: go.mod
       - name: Engine framework (gomobile)
@@ -89,7 +89,7 @@ jobs:
             -destination 'platform=macOS' CODE_SIGNING_ALLOWED=NO | xcbeautify
         env:
           TEST_RUNNER_SNAPSHOT_DIR: ${{ runner.temp }}/screens
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v6
         if: always()
         with:
           name: screens-mac
@@ -242,7 +242,7 @@ jobs:
           Ed25519PublicKey.from_public_bytes(base64.b64decode(pub)).verify(base64.b64decode(s), open(path, "rb").read())
           print("appcast signature verifies with the app's SUPublicEDKey")
           PY
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v6
         if: steps.devid.outputs.ready == 'true'
         with:
           name: magpie-mac-dmg
@@ -277,14 +277,14 @@ jobs:
       IOS_APP_PROFILE: Magpie iOS App Store
       IOS_FILES_PROFILE: Magpie Files iOS App Store
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Xcode 26 (App Store Connect requires the iOS 26 SDK)
         run: |
           XC=$(ls -d /Applications/Xcode_26*.app | sort -V | tail -1)
           echo "using $XC"
           sudo xcode-select -s "$XC"
           xcodebuild -version
-      - uses: actions/setup-go@v5
+      - uses: actions/setup-go@v7
         with:
           go-version-file: go.mod
       - name: Engine framework (gomobile)
@@ -310,7 +310,7 @@ jobs:
           mkdir -p "$RUNNER_TEMP/screens"
           [[ -d "$RUNNER_TEMP/screens.xcresult" ]] && xcrun xcresulttool export attachments --path "$RUNNER_TEMP/screens.xcresult" --output-path "$RUNNER_TEMP/screens" || true
           ls -la "$RUNNER_TEMP/screens"
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v6
         if: always()
         with:
           name: screens-iphone
@@ -433,14 +433,14 @@ jobs:
       IOS_APP_PROFILE: Magpie iOS App Store
       IOS_FILES_PROFILE: Magpie Files iOS App Store
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Xcode 26 (App Store Connect requires the iOS 26 SDK)
         run: |
           XC=$(ls -d /Applications/Xcode_26*.app | sort -V | tail -1)
           echo "using $XC"
           sudo xcode-select -s "$XC"
           xcodebuild -version
-      - uses: actions/setup-go@v5
+      - uses: actions/setup-go@v7
         with:
           go-version-file: go.mod
       - name: Engine framework (gomobile)
@@ -466,7 +466,7 @@ jobs:
           mkdir -p "$RUNNER_TEMP/screens"
           [[ -d "$RUNNER_TEMP/screens.xcresult" ]] && xcrun xcresulttool export attachments --path "$RUNNER_TEMP/screens.xcresult" --output-path "$RUNNER_TEMP/screens" || true
           ls -la "$RUNNER_TEMP/screens"
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v6
         if: always()
         with:
           name: screens-iphone

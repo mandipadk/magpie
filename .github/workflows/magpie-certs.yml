@@ -15,7 +15,7 @@ jobs:
   certs:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Certificates
         env:
           ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
@@ -35,7 +35,7 @@ jobs:
           esac
           $PY apps/asc.py certs
           rm -rf "$RUNNER_TEMP/keys"
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v6
         if: inputs.action == 'make-ci-dist'
         with:
           name: ci-dist-cert
