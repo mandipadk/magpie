@@ -43,6 +43,7 @@ struct HistoryBrowser: View {
             }
         }
         .textCase(nil)
+        .headerProminence(.increased)
         .navigationTitle(dir.isEmpty ? "Version history" : (dir as NSString).lastPathComponent)
         .navigationBarTitleDisplayMode(.inline)
         .task {
@@ -86,6 +87,7 @@ struct VersionsView: View {
             }
         }
         .textCase(nil)
+        .headerProminence(.increased)
         .navigationTitle((path as NSString).lastPathComponent)
         .navigationBarTitleDisplayMode(.inline)
         .task {

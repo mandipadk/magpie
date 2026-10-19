@@ -55,6 +55,7 @@ struct HomeView: View {
                 }
             }
             .textCase(nil)
+            .headerProminence(.increased)
             .navigationTitle("")
             .toolbar(.hidden, for: .navigationBar)
             .sheet(item: $conflict) { c in
@@ -90,7 +91,9 @@ struct HomeView: View {
     }
 }
 
-/// A section header in sentence case (List headers default to capitals).
+/// A section header in sentence case. Plain List headers are drawn in
+/// capitals whatever the text case says, so the lists using these also set
+/// .headerProminence(.increased), which isn't.
 func header(_ title: String) -> some View {
     Text(title).textCase(nil)
 }
