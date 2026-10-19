@@ -6,9 +6,14 @@ Finder and Files. Working copy: chicago:~/code/magpie (pushes to origin = github
 public, and frankfurt:~/code/magpie). Page: https://magpie.mandip.dev (private, magpie/page).
 
 ## Waiting on the owner
-- [ ] App Store Connect app record for dev.mandip.magpie (asked with steps, 2026-10-19; the browser
-      errand can't, the owner doesn't sign in to Switchback's browser)
-- [ ] Real test on their Mac and iPhone (see 3 and 4)
+- [ ] iPhone: install from TestFlight (internal group "Owner", app "Space: Magpie"), join with an
+      invite from the Mac, then: save on Mac -> shows on phone, a conflict shown, Version history
+
+## Done with the owner (2026-10-19, later)
+- [x] App Store Connect record ("Space: Magpie", 6824388726) and App Group group.dev.mandip.magpie
+      registered and assigned (owner, from steps)
+- [x] Their MacBook Pro joined from the page's setup link (05:32 UTC) and uploaded 6 files, 27 MB;
+      reconnected by itself after a hub deploy
 
 ## Done with the owner (2026-10-19)
 - [x] Repo public; root install on Frankfurt; Oracle ingress TCP+UDP 22000 (owner, from steps)
@@ -40,17 +45,21 @@ public, and frankfurt:~/code/magpie). Page: https://magpie.mandip.dev (private, 
 
 ## 4. iPhone app (apps/ios)
 - [x] Compiles in CI; screens reviewed, fixes applied (dark screenshots, camera states, copy)
-- [ ] Signed by hand (Apple Distribution + App Store profiles via asc.py) and uploaded with altool:
-      Xcode's own API sign-in failed with the owner's key, though the same key works for the REST API
-      and notarytool
-- [ ] TestFlight build (needs the App Store record)
+- [x] Signed by hand (Apple Distribution + App Store profiles via asc.py) and uploaded with altool
+      (Xcode's own API sign-in failed with the owner's key; the REST API, notarytool and altool work)
+- [x] TestFlight: builds 13 and 15 uploaded; internal group Owner gets every build (asc.py testflight)
 
 ## 5. Duties
 - [x] 6c6e20 daily: merge upstream, five --build-only passes, deploy, report
 - [x] 693e2a weekly (Mon): security review and fixes
 
 ## 6. Make it ours (propose, then build)
-- Version history in the apps (hub serves its encrypted versions to trusted devices: needs a BEP extension)
-- Push nudges from the hub so the iPhone updates without opening Files
+- [x] Version history, no protocol change: the hub keeps versions in /var/lib/magpie/history and
+      shares that directory as a send-only folder (magpie-history); devices fetch a version's
+      ciphertext, decrypt its trailer and blocks with the folder key. List, preview, restore, restore a
+      copy, bring back deleted files. Engine tests vs a real hub (5x green); hubd migrates older hubs
+      (deployed: live hub migrated 06:33 UTC). Mac: Finder "Version History…" window + Settings >
+      History; iPhone: Version history in the app
+- [ ] Push nudges from the hub so the iPhone updates without opening Files
 
 ## Duties log
