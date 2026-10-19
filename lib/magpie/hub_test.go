@@ -72,14 +72,17 @@ func startHub(t *testing.T, devices map[string]string) *hub {
 		fmt.Fprintf(&devs, `<device id="%s" name="%s"><address>dynamic</address></device>`, devID, name)
 	}
 	cfg := fmt.Sprintf(`<configuration version="51">
-<folder id="magpie" label="Magpie" path="%s" type="receiveencrypted" rescanIntervalS="3600" fsWatcherEnabled="false">
-%s
-<versioning type="staggered"><param key="maxAge" val="31536000"></param></versioning>
+<folder id="magpie" label="Magpie" path="%[1]s" type="receiveencrypted" rescanIntervalS="3600" fsWatcherEnabled="false">
+%[2]s
+<versioning type="staggered"><param key="maxAge" val="31536000"></param><fsPath>%[6]s</fsPath></versioning>
 </folder>
-%s
-<gui enabled="true" tls="false"><address>127.0.0.1:%d</address><apikey>magpie-test</apikey></gui>
+<folder id="magpie-history" label="Magpie history" path="%[6]s" type="sendonly" rescanIntervalS="3600" fsWatcherEnabled="true" fsWatcherDelayS="1">
+%[2]s
+</folder>
+%[3]s
+<gui enabled="true" tls="false"><address>127.0.0.1:%[4]d</address><apikey>magpie-test</apikey></gui>
 <options>
-<listenAddress>tcp://%s</listenAddress>
+<listenAddress>tcp://%[5]s</listenAddress>
 <globalAnnounceEnabled>false</globalAnnounceEnabled>
 <localAnnounceEnabled>false</localAnnounceEnabled>
 <relaysEnabled>false</relaysEnabled>
@@ -89,12 +92,12 @@ func startHub(t *testing.T, devices map[string]string) *hub {
 <crashReportingEnabled>false</crashReportingEnabled>
 <startBrowser>false</startBrowser>
 </options>
-</configuration>`, filepath.Join(home, "data"), folderDevs.String(), devs.String(), freePort(t), h.addr)
+</configuration>`, filepath.Join(home, "data"), folderDevs.String(), devs.String(), freePort(t), h.addr, filepath.Join(home, "history"))
 	if err := os.WriteFile(filepath.Join(home, "config.xml"), []byte(cfg), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	h.cmd = exec.Command(bin, "serve", "--home", home, "--no-browser", "--no-restart")
-	h.cmd.Env = append(os.Environ(), "STNOUPGRADE=1", "STTRACE="+os.Getenv("MAGPIE_HUB_TRACE"))
+	h.cmd.Env = append(os.Environ(), "STNOUPGRADE=1", "TZ=UTC", "STTRACE="+os.Getenv("MAGPIE_HUB_TRACE"))
 	logf, _ := os.Create(filepath.Join(home, "hub.log"))
 	h.cmd.Stdout, h.cmd.Stderr = logf, logf
 	if err := h.cmd.Start(); err != nil {
@@ -311,7 +314,7 @@ func TestHubDeleteKeepsHistory(t *testing.T) {
 	waitFor(t, "mac sees it gone", func() bool { _, err := mac.Stat("Taxes 2026/Receipt.pdf"); return err == ErrNotFound })
 	waitFor(t, "the hub keeps a version", func() bool {
 		n := 0
-		_ = filepath.WalkDir(filepath.Join(h.home, "data", ".stversions"), func(p string, d fs.DirEntry, err error) error {
+		_ = filepath.WalkDir(filepath.Join(h.home, "history"), func(p string, d fs.DirEntry, err error) error {
 			if err == nil && !d.IsDir() {
 				n++
 			}
@@ -349,4 +352,96 @@ func TestHubEmptyAndRepeatedEdits(t *testing.T) {
 	if len(mac.Conflicts()) != 0 {
 		t.Fatalf("sequential edits made conflicts: %v", mac.Conflicts())
 	}
+}
+
+// Old versions come back from the hub's history, decrypted only on the
+// devices: listed newest first, fetched intact, restored as a new edit; a
+// deleted file can be brought back. The hub's history stays ciphertext.
+func TestHubVersionHistory(t *testing.T) {
+	h, mac, phone := twoDevices(t)
+	ctx := context.Background()
+
+	drafts := [][]byte{
+		[]byte("Budget, first draft\n"),
+		bytes.Repeat([]byte("Budget, second draft with a lot more rows.\n"), 12000), // ~0.5 MB, several blocks
+		[]byte("Budget, final\n"),
+	}
+	base := ""
+	for i, d := range drafts {
+		en, err := mac.Put(ctx, "Money/Budget.txt", writeTemp(t, d), base)
+		if err != nil {
+			t.Fatal(err)
+		}
+		base = en.Version
+		waitFor(t, fmt.Sprintf("draft %d on the hub", i+1), func() bool {
+			en, err := mac.Stat("Money/Budget.txt")
+			return err == nil && en.OnHub && en.Version == base
+		})
+		time.Sleep(1100 * time.Millisecond) // the versioner tags by the second
+	}
+
+	var versions []OldVersion
+	waitFor(t, "the phone to see two old versions", func() bool {
+		v, err := phone.Versions(ctx, "Money/Budget.txt")
+		versions = v
+		return err == nil && len(v) == 2
+	})
+	for i, want := range [][]byte{drafts[1], drafts[0]} {
+		v := versions[i]
+		if v.Path != "Money/Budget.txt" || v.Size != int64(len(want)) || v.ModifiedBy != "MacBook Air" {
+			t.Fatalf("version %d: %+v", i, v)
+		}
+		dst := filepath.Join(t.TempDir(), "v")
+		if _, err := phone.FetchVersion(ctx, v.ID, dst); err != nil {
+			t.Fatalf("fetch version %d: %v", i, err)
+		}
+		if got, _ := os.ReadFile(dst); !bytes.Equal(got, want) {
+			t.Fatalf("version %d came back as %d bytes, want %d", i, len(got), len(want))
+		}
+	}
+
+	// Restore the first draft from the phone; the Mac gets it as the file.
+	if _, err := phone.Restore(ctx, versions[1].ID); err != nil {
+		t.Fatal(err)
+	}
+	waitFor(t, "the Mac to have the first draft back", func() bool {
+		en, err := mac.Stat("Money/Budget.txt")
+		return err == nil && en.Size == int64(len(drafts[0])) && bytes.Equal(fetch(t, mac, "Money/Budget.txt"), drafts[0])
+	})
+
+	// A deleted file is listed and comes back.
+	if _, err := mac.Put(ctx, "Notes/Packing list.txt", writeTemp(t, []byte("passport, charger")), ""); err != nil {
+		t.Fatal(err)
+	}
+	waitFor(t, "the phone sees the list", func() bool { _, err := phone.Stat("Notes/Packing list.txt"); return err == nil })
+	if err := phone.Delete(ctx, "Notes/Packing list.txt", ""); err != nil {
+		t.Fatal(err)
+	}
+	var gone []OldVersion
+	waitFor(t, "the Mac to list it as deleted", func() bool {
+		d, err := mac.Deleted(ctx)
+		gone = d
+		return err == nil && len(d) > 0 && d[0].Path == "Notes/Packing list.txt"
+	})
+	if _, err := mac.Restore(ctx, gone[0].ID); err != nil {
+		t.Fatal(err)
+	}
+	waitFor(t, "the phone to have it back", func() bool {
+		_, err := phone.Stat("Notes/Packing list.txt")
+		return err == nil && bytes.Equal(fetch(t, phone, "Notes/Packing list.txt"), []byte("passport, charger"))
+	})
+
+	// Nothing in the hub's history is readable there.
+	_ = filepath.WalkDir(filepath.Join(h.home, "history"), func(p string, d fs.DirEntry, err error) error {
+		if err != nil || d.IsDir() {
+			return nil
+		}
+		bs, _ := os.ReadFile(p)
+		for _, secret := range []string{"Budget", "passport", "Packing"} {
+			if bytes.Contains(bs, []byte(secret)) || strings.Contains(p, secret) {
+				t.Fatalf("the hub's history holds %q in the clear (%s)", secret, p)
+			}
+		}
+		return nil
+	})
 }

@@ -38,6 +38,11 @@ type storeData struct {
 	LocalSeq     int64
 	Local        map[string]protocol.FileInfo
 
+	// The hub's history folder: its encrypted old versions, as files.
+	HistIndexID protocol.IndexID
+	HistSeq     int64
+	History     map[string]protocol.FileInfo
+
 	// Pinned paths (files or directories) are kept downloaded.
 	Pinned map[string]bool
 	// Joined is set once the hub has accepted this device.
@@ -61,6 +66,9 @@ func openStore(file string) (*store, error) {
 	}
 	if s.data.Local == nil {
 		s.data.Local = map[string]protocol.FileInfo{}
+	}
+	if s.data.History == nil {
+		s.data.History = map[string]protocol.FileInfo{}
 	}
 	if s.data.Pinned == nil {
 		s.data.Pinned = map[string]bool{}
@@ -312,4 +320,62 @@ func (s *store) stats() (files int, bytes int64) {
 		}
 	}
 	return files, bytes
+}
+
+func (s *store) histIndexState() (protocol.IndexID, int64) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.data.HistIndexID, s.data.HistSeq
+}
+
+// resetHistory forgets the history index when the hub starts a new one.
+func (s *store) resetHistory(id protocol.IndexID) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.data.HistIndexID == id {
+		return
+	}
+	s.data.HistIndexID = id
+	s.data.HistSeq = 0
+	s.data.History = map[string]protocol.FileInfo{}
+	_ = s.saveLocked()
+}
+
+// applyHistory records the hub's history folder index. A full index
+// replaces what we had; deleted entries are versions the hub let go.
+func (s *store) applyHistory(files []protocol.FileInfo, full bool, last int64) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if full {
+		s.data.History = make(map[string]protocol.FileInfo, len(files))
+	}
+	for _, f := range files {
+		if f.IsDeleted() || f.IsDirectory() || f.IsInvalid() {
+			delete(s.data.History, f.Name)
+			continue
+		}
+		f.Blocks = append([]protocol.BlockInfo(nil), f.Blocks...)
+		s.data.History[f.Name] = f
+	}
+	if last > s.data.HistSeq {
+		s.data.HistSeq = last
+	}
+	_ = s.saveLocked()
+}
+
+func (s *store) historyFile(name string) (protocol.FileInfo, bool) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	f, ok := s.data.History[name]
+	return f, ok
+}
+
+func (s *store) historyNames() []string {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	out := make([]string, 0, len(s.data.History))
+	for name := range s.data.History {
+		out = append(out, name)
+	}
+	return out
 }

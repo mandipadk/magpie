@@ -99,6 +99,11 @@ type hub struct {
 
 func (h *hub) dir() string { return filepath.Join(h.home, "hubd") }
 
+// historyDir holds the folder's old versions, still encrypted. It is shared
+// with devices as a send-only folder so they can browse and restore them
+// (lib/magpie/history.go); the hub can't read them any more than the rest.
+func (h *hub) historyDir() string { return filepath.Join(h.home, "history") }
+
 // init writes the hub's syncthing config: the folder receive-encrypted with
 // a year of staggered versions, devices only by invite, and nothing that
 // talks to the outside (no discovery, relays, NAT, usage reports, upgrades).
@@ -133,8 +138,12 @@ func (h *hub) init(bin, addr string) error {
         <versioning type="staggered">
             <param key="maxAge" val="31536000"></param>
             <cleanupIntervalS>3600</cleanupIntervalS>
+            <fsPath>%[6]s</fsPath>
         </versioning>
         <minDiskFree unit="%%">2</minDiskFree>
+    </folder>
+    <folder id="%[7]s" label="Magpie history" path="%[6]s" type="sendonly" rescanIntervalS="3600" fsWatcherEnabled="true" fsWatcherDelayS="1" ignorePerms="true">
+        <device id="%[3]s"></device>
     </folder>
     <device id="%[3]s" name="Frankfurt" compression="metadata">
         <address>dynamic</address>
@@ -158,7 +167,7 @@ func (h *hub) init(bin, addr string) error {
         <announceLANAddresses>false</announceLANAddresses>
     </options>
 </configuration>
-`, folderID, filepath.Join(h.home, "folder"), id, magpie.NewPassword(), port)
+`, folderID, filepath.Join(h.home, "folder"), id, magpie.NewPassword(), port, h.historyDir(), magpie.HistoryFolder(folderID))
 	return os.WriteFile(filepath.Join(h.home, "config.xml"), []byte(cfg), 0o600)
 }
 
@@ -258,6 +267,9 @@ func (h *hub) run() error {
 		if err := h.admit(); err != nil {
 			log.Printf("magpie-hubd: %v", err)
 		}
+		if err := h.ensureHistory(); err != nil {
+			log.Printf("magpie-hubd: history: %v", err)
+		}
 		time.Sleep(2 * time.Second)
 	}
 }
@@ -341,6 +353,75 @@ func (h *hub) add(id, name string) error {
 	}
 	folder["devices"] = append(devs, map[string]any{"deviceID": id})
 	return h.api("PUT", "/rest/config/folders/"+folderID, folder, nil)
+}
+
+// ensureHistory keeps the history folder in step with the main one: versions
+// go to historyDir, and every device of the folder can read its history.
+// Hubs set up before history existed get it here.
+func (h *hub) ensureHistory() error {
+	var folder map[string]any
+	if err := h.api("GET", "/rest/config/folders/"+folderID, nil, &folder); err != nil {
+		return err
+	}
+	if v, ok := folder["versioning"].(map[string]any); ok && v["fsPath"] != h.historyDir() {
+		v["fsPath"] = h.historyDir()
+		if err := h.api("PUT", "/rest/config/folders/"+folderID, folder, nil); err != nil {
+			return err
+		}
+		log.Printf("magpie-hubd: versions now kept in %s", h.historyDir())
+	}
+	want := map[string]bool{}
+	devs, _ := folder["devices"].([]any)
+	for _, d := range devs {
+		if m, ok := d.(map[string]any); ok {
+			if id, _ := m["deviceID"].(string); id != "" {
+				want[id] = true
+			}
+		}
+	}
+
+	histID := magpie.HistoryFolder(folderID)
+	var hist map[string]any
+	if err := h.api("GET", "/rest/config/folders/"+histID, nil, &hist); err != nil {
+		if !strings.Contains(err.Error(), "404") {
+			return err
+		}
+		hist = map[string]any{
+			"id": histID, "label": "Magpie history", "path": h.historyDir(), "type": "sendonly",
+			"rescanIntervalS": 3600, "fsWatcherEnabled": true, "fsWatcherDelayS": 1, "ignorePerms": true,
+		}
+		log.Printf("magpie-hubd: sharing history from %s", h.historyDir())
+	}
+	have := map[string]bool{}
+	var list []any
+	if hd, ok := hist["devices"].([]any); ok {
+		for _, d := range hd {
+			if m, ok := d.(map[string]any); ok {
+				if id, _ := m["deviceID"].(string); want[id] {
+					have[id] = true
+					list = append(list, d)
+				}
+			}
+		}
+	}
+	// Devices removed from the folder lose its history too.
+	changed := hist["devices"] == nil || len(list) != lenAny(hist["devices"])
+	for id := range want {
+		if !have[id] {
+			list = append(list, map[string]any{"deviceID": id})
+			changed = true
+		}
+	}
+	if !changed {
+		return nil
+	}
+	hist["devices"] = list
+	return h.api("PUT", "/rest/config/folders/"+histID, hist, nil)
+}
+
+func lenAny(v any) int {
+	l, _ := v.([]any)
+	return len(l)
 }
 
 func (h *hub) remove(id string) error {

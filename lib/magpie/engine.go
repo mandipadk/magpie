@@ -78,6 +78,8 @@ type Engine struct {
 	shared    bool  // the hub shares the folder with us
 	names     map[string]string
 	devices   []DeviceInfo
+	fkey         *[32]byte          // the folder key, derived once (history.go)
+	versionCache map[string]OldVersion // trailers already read
 	changes   *changeLog
 
 	listeners []func(Change)
@@ -338,6 +340,7 @@ func (e *Engine) Invite() (string, error) {
 func (e *Engine) clusterConfig() *protocol.ClusterConfig {
 	hubIdx, hubSeq := e.store.hubIndexState()
 	myIdx, mySeq := e.store.localIndexState()
+	histIdx, histSeq := e.store.histIndexState()
 	return &protocol.ClusterConfig{
 		Folders: []protocol.Folder{{
 			ID:    e.cfg.FolderID,
@@ -358,6 +361,15 @@ func (e *Engine) clusterConfig() *protocol.ClusterConfig {
 					MaxSequence:             hubSeq,
 					EncryptionPasswordToken: protocol.PasswordToken(e.keyGen, e.cfg.FolderID, e.cfg.Password),
 				},
+			},
+		}, {
+			// The hub's old versions, already ciphertext, shared as plain files
+			// (see history.go). We only ever read from it.
+			ID:    HistoryFolder(e.cfg.FolderID),
+			Label: "Magpie history",
+			Devices: []protocol.Device{
+				{ID: e.myID, Name: e.cfg.DeviceName, Compression: protocol.CompressionMetadata, IndexID: myIdx},
+				{ID: e.hubID, Compression: protocol.CompressionMetadata, IndexID: histIdx, MaxSequence: histSeq},
 			},
 		}},
 	}

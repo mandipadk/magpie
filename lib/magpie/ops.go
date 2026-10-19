@@ -117,7 +117,7 @@ func (e *Engine) Fetch(ctx context.Context, name, dst string, progress func(done
 	}
 	var done int64
 	for i, b := range f.Blocks {
-		data, err := e.requestBlock(ctx, name, i, b)
+		data, err := e.requestBlock(ctx, e.cfg.FolderID, name, i, b)
 		if err != nil {
 			return fail(err)
 		}
@@ -142,7 +142,7 @@ func (e *Engine) Fetch(ctx context.Context, name, dst string, progress func(done
 	return e.entry(f), nil
 }
 
-func (e *Engine) requestBlock(ctx context.Context, name string, i int, b protocol.BlockInfo) ([]byte, error) {
+func (e *Engine) requestBlock(ctx context.Context, folder, name string, i int, b protocol.BlockInfo) ([]byte, error) {
 	var lastErr error
 	for attempt := 0; attempt < 3; attempt++ {
 		wctx, cancel := context.WithTimeout(ctx, 30*time.Second)
@@ -153,7 +153,7 @@ func (e *Engine) requestBlock(ctx context.Context, name string, i int, b protoco
 		}
 		rctx, cancel := context.WithTimeout(ctx, 2*time.Minute)
 		data, err := conn.Request(rctx, &protocol.Request{
-			Folder:  e.cfg.FolderID,
+			Folder:  folder,
 			Name:    name,
 			Offset:  b.Offset,
 			Size:    b.Size,

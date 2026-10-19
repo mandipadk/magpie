@@ -23,6 +23,15 @@ type model struct {
 func (m *model) ClusterConfig(_ protocol.Connection, cc *protocol.ClusterConfig) error {
 	e := m.e
 	for _, f := range cc.Folders {
+		if f.ID == HistoryFolder(e.cfg.FolderID) {
+			for _, d := range f.Devices {
+				if d.ID == e.hubID {
+					e.store.resetHistory(d.IndexID)
+				}
+			}
+		}
+	}
+	for _, f := range cc.Folders {
 		if f.ID != e.cfg.FolderID {
 			continue
 		}
@@ -53,6 +62,10 @@ func (m *model) ClusterConfig(_ protocol.Connection, cc *protocol.ClusterConfig)
 }
 
 func (m *model) Index(_ protocol.Connection, idx *protocol.Index) error {
+	if idx.Folder == HistoryFolder(m.e.cfg.FolderID) {
+		m.e.store.applyHistory(idx.Files, true, idx.LastSequence)
+		return nil
+	}
 	if idx.Folder != m.e.cfg.FolderID {
 		return nil
 	}
@@ -62,6 +75,10 @@ func (m *model) Index(_ protocol.Connection, idx *protocol.Index) error {
 }
 
 func (m *model) IndexUpdate(_ protocol.Connection, up *protocol.IndexUpdate) error {
+	if up.Folder == HistoryFolder(m.e.cfg.FolderID) {
+		m.e.store.applyHistory(up.Files, false, up.LastSequence)
+		return nil
+	}
 	if up.Folder != m.e.cfg.FolderID {
 		return nil
 	}
