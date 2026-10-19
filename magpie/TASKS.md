@@ -9,6 +9,12 @@ public, and frankfurt:~/code/magpie). Page: https://magpie.mandip.dev (private, 
 - [ ] iPhone: install from TestFlight (internal group "Owner", app "Space: Magpie"), join with an
       invite from the Mac, then: save on Mac -> shows on phone, a conflict shown, Version history
 
+## Owner reports (2026-10-19, afternoon)
+- [x] "Add a device button is gone": it sat in the device list's section footer, which a grouped Form
+      drops when the list is empty (the app hadn't reached the extension yet). Now always visible
+      under the list, with a "Connecting to Magpie…" row, and Add Device… is in the menu bar panel
+- [x] Page said "On TestFlight soon": now "In TestFlight as Space: Magpie" with Get TestFlight
+
 ## Done with the owner (2026-10-19, later)
 - [x] App Store Connect record ("Space: Magpie", 6824388726) and App Group group.dev.mandip.magpie
       registered and assigned (owner, from steps)
