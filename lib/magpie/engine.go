@@ -118,9 +118,6 @@ func New(cfg Config) (*Engine, error) {
 	if err := os.MkdirAll(cfg.DataDir, 0o700); err != nil {
 		return nil, err
 	}
-	if err := lockDataDir(cfg.DataDir); err != nil {
-		return nil, err
-	}
 	cert, err := LoadOrCreateCert(cfg.DataDir)
 	if err != nil {
 		return nil, err
