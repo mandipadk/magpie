@@ -46,10 +46,12 @@ final class Item: NSObject, NSFileProviderItem {
 
     var userInfo: [AnyHashable: Any]? { ["kept": kept] }
 
-    // The property exists from macOS 14 and iOS 17; keeping something downloaded
-    // (eager download that survives eviction) arrived in macOS 15 and iOS 18.
+    // Keeping something downloaded is a content policy on the Mac (macOS 15);
+    // iOS has no such policy, so there the extension fetches kept items itself.
     var contentPolicy: NSFileProviderContentPolicy {
-        if #available(macOS 15.0, iOS 18.0, *), kept { return .downloadEagerlyAndKeepDownloaded }
+        #if os(macOS)
+        if #available(macOS 15.0, *), kept { return .downloadEagerlyAndKeepDownloaded }
+        #endif
         return .inherited
     }
 }

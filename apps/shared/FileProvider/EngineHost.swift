@@ -74,7 +74,7 @@ final class EngineHost: NSObject, MobileListenerProtocol {
     private func refreshKept(_ paths: [String], manager: NSFileProviderManager) {
         guard let e = try? get() else { return }
         for p in paths where e.pinned(p) {
-            guard let json = try? e.stat(p), let en = try? engineDecoder.decode(Entry.self, from: Data(json.utf8)), !en.Dir else { continue }
+            guard let en = try? e.entry(p), !en.Dir else { continue }
             requestDownload(manager, path: p)
         }
     }
@@ -111,9 +111,18 @@ func fileProviderError(_ error: Error) -> Error {
     return NSError(domain: NSCocoaErrorDomain, code: NSFileWriteUnknownError, userInfo: [NSLocalizedDescriptionKey: msg])
 }
 
+/// gomobile hands (string, error) results to Swift with an error pointer
+/// rather than as a throwing call; this turns them back into one.
+func goCall<T>(_ body: (NSErrorPointer) -> T) throws -> T {
+    var err: NSError?
+    let result = body(&err)
+    if let err { throw err }
+    return result
+}
+
 extension MobileEngine {
     func entry(_ path: String) throws -> Entry {
-        let json = try stat(path)
+        let json = try goCall { stat(path, error: $0) }
         return try engineDecoder.decode(Entry.self, from: Data(json.utf8))
     }
 

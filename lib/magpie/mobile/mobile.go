@@ -162,12 +162,12 @@ func ctxFor(timeoutMs int64) (context.Context, context.CancelFunc) {
 }
 
 // Fetch downloads path to dst and returns its entry.
-func (m *Engine) Fetch(path, dst string, timeoutMs int64, p Progress) (string, error) {
+func (m *Engine) Fetch(path, dst string, timeoutMs int64, progress Progress) (string, error) {
 	ctx, cancel := ctxFor(timeoutMs)
 	defer cancel()
 	var cb func(done, total int64)
-	if p != nil {
-		cb = p.OnProgress
+	if progress != nil {
+		cb = progress.OnProgress
 	}
 	en, err := m.e.Fetch(ctx, path, dst, cb)
 	if err != nil {

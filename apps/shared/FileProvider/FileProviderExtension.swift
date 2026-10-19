@@ -49,7 +49,7 @@ final class FileProviderExtension: NSObject, NSFileProviderReplicatedExtension, 
                 let e = try EngineHost.shared.ready(domain: self.domain)
                 let dir = try self.manager?.temporaryDirectoryURL() ?? FileManager.default.temporaryDirectory
                 let dst = dir.appendingPathComponent(UUID().uuidString)
-                let json = try e.fetch(p, dst: dst.path, timeoutMs: 0, p: ProgressBridge(progress))
+                let json = try goCall { e.fetch(p, dst: dst.path, timeoutMs: 0, progress: ProgressBridge(progress), error: $0) }
                 let en = try engineDecoder.decode(Entry.self, from: Data(json.utf8))
                 completionHandler(dst, e.item(en), nil)
             } catch {
@@ -74,9 +74,9 @@ final class FileProviderExtension: NSObject, NSFileProviderReplicatedExtension, 
                 let e = try EngineHost.shared.ready(domain: self.domain)
                 let json: String
                 if isFolder {
-                    json = try e.mkdir(target)
+                    json = try goCall { e.mkdir(target, error: $0) }
                 } else if let url {
-                    json = try e.put(target, src: url.path, base: "")
+                    json = try goCall { e.put(target, src: url.path, base: "", error: $0) }
                 } else {
                     // a symlink or alias: Magpie keeps files and folders only
                     completionHandler(nil, [], false, NSError(domain: NSCocoaErrorDomain, code: NSFeatureUnsupportedError))
@@ -108,14 +108,14 @@ final class FileProviderExtension: NSObject, NSFileProviderReplicatedExtension, 
                     guard let parent = path(for: item.parentItemIdentifier) else { throw NSFileProviderError(.noSuchItem) }
                     let to = parent.isEmpty ? item.filename : parent + "/" + item.filename
                     if to != p {
-                        _ = try e.rename(p, newPath: to, base: base)
+                        _ = try goCall { e.rename(p, newPath: to, base: base, error: $0) }
                         p = to
                     }
                 }
                 var refetch = false
                 if changedFields.contains(.contents), let newContents {
                     let current = try e.entry(p).Version
-                    let json = try e.put(p, src: newContents.path, base: changedFields.contains(.filename) ? current : base)
+                    let json = try goCall { e.put(p, src: newContents.path, base: changedFields.contains(.filename) ? current : base, error: $0) }
                     let saved = try engineDecoder.decode(Entry.self, from: Data(json.utf8))
                     // Edited elsewhere meanwhile: the edit became a conflict copy, and
                     // this item takes the other device's version.
