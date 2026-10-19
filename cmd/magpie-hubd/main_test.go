@@ -64,6 +64,7 @@ func startHub(t *testing.T) (*hub, string) {
 	go func() {
 		for ctx.Err() == nil {
 			_ = h.admit()
+			_ = h.ensureHistory()
 			time.Sleep(200 * time.Millisecond)
 		}
 	}()
@@ -161,6 +162,15 @@ func TestJoinByInvite(t *testing.T) {
 		t.Fatalf("hub devices: %+v", s.Devices)
 	}
 
+	// Both devices can read the hub's history.
+	waitFor(t, "both devices on the history folder", func() bool {
+		var hist map[string]any
+		if err := h.api("GET", "/rest/config/folders/magpie-history", nil, &hist); err != nil {
+			return false
+		}
+		return lenAny(hist["devices"]) == 3 // the hub and the two devices
+	})
+
 	// Removing the phone locks it out.
 	if err := h.remove(phone.DeviceID()); err != nil {
 		t.Fatal(err)
@@ -170,4 +180,33 @@ func TestJoinByInvite(t *testing.T) {
 	if phone.Status().Accepted && phone.Status().Connected {
 		t.Fatal("a removed device got back in")
 	}
+}
+
+// A hub set up before history existed gets it: versions move to the history
+// directory and the folder is shared with every device of the main folder.
+func TestHistoryForOlderHubs(t *testing.T) {
+	h, _ := startHub(t)
+	var hist map[string]any
+	if err := h.api("DELETE", "/rest/config/folders/magpie-history", nil, nil); err != nil {
+		t.Fatal(err)
+	}
+	var folder map[string]any
+	if err := h.api("GET", "/rest/config/folders/magpie", nil, &folder); err != nil {
+		t.Fatal(err)
+	}
+	folder["versioning"].(map[string]any)["fsPath"] = ""
+	if err := h.api("PUT", "/rest/config/folders/magpie", folder, nil); err != nil {
+		t.Fatal(err)
+	}
+	waitFor(t, "history set up again", func() bool {
+		if err := h.ensureHistory(); err != nil {
+			return false
+		}
+		if err := h.api("GET", "/rest/config/folders/magpie-history", nil, &hist); err != nil {
+			return false
+		}
+		_ = h.api("GET", "/rest/config/folders/magpie", nil, &folder)
+		return hist["type"] == "sendonly" && hist["path"] == h.historyDir() &&
+			folder["versioning"].(map[string]any)["fsPath"] == h.historyDir()
+	})
 }
