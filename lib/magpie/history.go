@@ -279,6 +279,11 @@ func (e *Engine) FetchVersion(ctx context.Context, id, dst string) (OldVersion, 
 		if err != nil {
 			return fail(fmt.Errorf("magpie: decrypting block %d of a version: %w", i, err))
 		}
+		// Blocks under 1 KiB are padded before they're encrypted.
+		if len(plain) < rb.Size {
+			return fail(fmt.Errorf("magpie: block %d of a version is short", i))
+		}
+		plain = plain[:rb.Size]
 		if sum := sha256.Sum256(plain); !bytes.Equal(sum[:], rb.Hash) {
 			return fail(fmt.Errorf("magpie: block %d of a version failed its hash check", i))
 		}
