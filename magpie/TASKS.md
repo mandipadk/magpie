@@ -27,7 +27,7 @@ public, and frankfurt:~/code/magpie). Page: https://magpie.mandip.dev (private, 
       extension process, so the updated Mac's engine never opened; removed (build 33+). Add Device
       said "isn't reachable" when opened before the app connected; it now waits. A restored join
       window showed on a joined Mac after an update; now closes
-- [ ] Owner: Check for Updates on the Mac (build 10 -> 36), then the page's Add a device
+- [ ] Owner: Check for Updates on the Mac (build 10 -> 39, live after e2e run 39298090535), then the page's Add a device
 - Open: macOS runs the extension in two processes, each opening the engine on the same files.
   Worked for hours on the owner's Mac; needs one engine owner per device (design, not a lock)
 - Not known: what exactly froze the Mac (no access to it). Not repeated on purpose.
