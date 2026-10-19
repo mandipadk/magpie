@@ -13,6 +13,8 @@
     asc.py dist-cert <csr file> <out file>     an Apple Distribution certificate for CI's own lasting key
     asc.py store-profile <identifier> <name> <cert serial hex> <out file>
                                                a fresh App Store (iOS) provisioning profile
+    asc.py testflight <identifier>             the app's builds, and an internal "Owner" group that
+                                               gets every build, with the team's users in it
 
 Reads ASC_KEY_ID, ASC_ISSUER_ID and ASC_KEY_PATH (the .p8 file). Needs PyJWT
 with its crypto extra.
@@ -117,6 +119,52 @@ def new_cert(csr_file, out, cert_type):
     print(f"made {cert_type.lower()} certificate {made['data']['id']}")
 
 
+def testflight(identifier):
+    status, apps = call("GET", f"/apps?filter[bundleId]={identifier}")
+    if status != 200 or not apps["data"]:
+        sys.exit(f"no App Store Connect app for {identifier} ({status})")
+    app = apps["data"][0]
+    print(f"app {app['attributes']['name']} ({app['id']})")
+    status, builds = call("GET", f"/builds?filter[app]={app['id']}&sort=-uploadedDate&limit=5")
+    for b in builds.get("data", []):
+        a = b["attributes"]
+        print(f"build {a['version']}: {a['processingState']}, uploaded {a['uploadedDate'][:16]}, expired {a['expired']}")
+
+    status, groups = call("GET", f"/apps/{app['id']}/betaGroups")
+    group = next((g for g in groups.get("data", []) if g["attributes"]["name"] == "Owner"), None)
+    if group is None:
+        status, made = call("POST", "/betaGroups", {"data": {
+            "type": "betaGroups",
+            "attributes": {"name": "Owner", "isInternalGroup": True, "hasAccessToAllBuilds": True},
+            "relationships": {"app": {"data": {"type": "apps", "id": app["id"]}}},
+        }})
+        if status not in (200, 201):
+            sys.exit(f"could not make the Owner group ({status}): {made}")
+        group = made["data"]
+        print("made the internal group Owner (every build)")
+    else:
+        print("internal group Owner exists")
+
+    status, users = call("GET", "/users?limit=50")
+    if status != 200:
+        print(f"can't list the team's users ({status}); add yourself to Owner in TestFlight")
+        return
+    status, testers = call("GET", f"/betaGroups/{group['id']}/betaTesters?limit=200")
+    have = {t["attributes"].get("email", "").lower() for t in testers.get("data", [])}
+    for u in users["data"]:
+        a = u["attributes"]
+        email = a.get("username", "")
+        if not email or email.lower() in have:
+            continue
+        status, made = call("POST", "/betaTesters", {"data": {
+            "type": "betaTesters",
+            "attributes": {"email": email, "firstName": a.get("firstName", ""), "lastName": a.get("lastName", "")},
+            "relationships": {"betaGroups": {"data": [{"type": "betaGroups", "id": group["id"]}]}},
+        }})
+        print(f"added a team user to Owner ({status})" if status in (200, 201) else f"could not add a team user ({status}): {made}")
+    print(f"Owner has {len(have)} tester(s) before this run")
+
+
 def ensure_bundle(identifier, name):
     status, out = call("GET", f"/bundleIds?filter[identifier]={identifier}")
     if status == 200 and any(b["attributes"]["identifier"] == identifier for b in out["data"]):
@@ -173,6 +221,8 @@ def main():
         devid_profile(*sys.argv[2:6])
     elif len(sys.argv) >= 6 and sys.argv[1] == "store-profile":
         make_profile(*sys.argv[2:6], "IOS_APP_STORE", ("DISTRIBUTION", "IOS_DISTRIBUTION"))
+    elif len(sys.argv) >= 3 and sys.argv[1] == "testflight":
+        testflight(sys.argv[2])
     elif len(sys.argv) >= 4 and sys.argv[1] == "dist-cert":
         new_cert(sys.argv[2], sys.argv[3], "DISTRIBUTION")
     else:

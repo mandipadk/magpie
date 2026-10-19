@@ -19,6 +19,19 @@ import Foundation
     func setKeepDownloaded(path: String, on: Bool, reply: @escaping (String?) -> Void)
     /// Paths kept downloaded, as a JSON array.
     func keptDownloaded(reply: @escaping (Data) -> Void)
+
+    // Version history (lib/magpie/history.go)
+    /// [Entry] in a folder, as JSON.
+    func list(dir: String, reply: @escaping (Data) -> Void)
+    /// [OldVersion] of a file, newest first, as JSON; or an error message.
+    func versions(path: String, reply: @escaping (Data?, String?) -> Void)
+    /// [OldVersion] of deleted files the server still keeps; or an error message.
+    func deleted(reply: @escaping (Data?, String?) -> Void)
+    /// Writes a version into the shared container for previewing and returns
+    /// its path; or an error message.
+    func preview(id: String, reply: @escaping (String?, String?) -> Void)
+    /// Puts a version back in place, or beside the file as a copy.
+    func restore(id: String, asCopy: Bool, reply: @escaping (String?) -> Void)
 }
 
 func makeServiceInterface() -> NSXPCInterface {

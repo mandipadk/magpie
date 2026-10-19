@@ -3,13 +3,14 @@
 #   make-ci-dist    an Apple Distribution certificate for CI's lasting key, from
 #                   the CSR in apps/ci-dist.csr (the key is on Chicago; the
 #                   resulting .p12 becomes the IOS_DIST_P12 secret)
+#   testflight      the iPhone builds' state, and the internal Owner group
 name: magpie-certs
 on:
   workflow_dispatch:
     inputs:
       action:
         type: choice
-        options: [list, make-ci-dist]
+        options: [list, make-ci-dist, testflight]
         default: list
 jobs:
   certs:
@@ -32,6 +33,7 @@ jobs:
           PY="$RUNNER_TEMP/venv/bin/python"
           case "$ACTION" in
             make-ci-dist) $PY apps/asc.py dist-cert apps/ci-dist.csr out/ci-dist.cer ;;
+            testflight) $PY apps/asc.py testflight dev.mandip.magpie ;;
           esac
           $PY apps/asc.py certs
           rm -rf "$RUNNER_TEMP/keys"

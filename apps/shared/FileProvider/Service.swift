@@ -79,4 +79,60 @@ final class ServiceSource: NSObject, NSFileProviderServiceSource, NSXPCListenerD
     func keptDownloaded(reply: @escaping (Data) -> Void) {
         reply(Data((engine?.pinnedPaths() ?? "[]").utf8))
     }
+
+    // MARK: Version history
+
+    func list(dir: String, reply: @escaping (Data) -> Void) {
+        reply(Data((engine?.list(dir) ?? "[]").utf8))
+    }
+
+    func versions(path: String, reply: @escaping (Data?, String?) -> Void) {
+        background(reply) { e in Data(try goCall { e.versions(path, error: $0) }.utf8) }
+    }
+
+    func deleted(reply: @escaping (Data?, String?) -> Void) {
+        background(reply) { e in Data(try goCall { e.deleted($0) }.utf8) }
+    }
+
+    func preview(id: String, reply: @escaping (String?, String?) -> Void) {
+        background(reply) { e in
+            let dir = Magpie.containerURL.appendingPathComponent("previews", isDirectory: true)
+            try? FileManager.default.removeItem(at: dir) // one preview at a time
+            try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+            let tmp = dir.appendingPathComponent(UUID().uuidString)
+            let json = try goCall { e.fetchVersion(id, dst: tmp.path, error: $0) }
+            let v = try engineDecoder.decode(OldVersion.self, from: Data(json.utf8))
+            // Under the file's own name, so Quick Look knows what it is.
+            let named = dir.appendingPathComponent(v.name)
+            try FileManager.default.moveItem(at: tmp, to: named)
+            return named.path
+        }
+    }
+
+    func restore(id: String, asCopy: Bool, reply: @escaping (String?) -> Void) {
+        DispatchQueue.global(qos: .userInitiated).async {
+            do {
+                guard let e = self.engine else { return reply("Magpie isn't running.") }
+                if asCopy {
+                    _ = try goCall { e.restoreCopy(id, error: $0) }
+                } else {
+                    _ = try goCall { e.restore(id, error: $0) }
+                }
+                reply(nil)
+            } catch {
+                reply(friendlyError(error))
+            }
+        }
+    }
+
+    private func background<T>(_ reply: @escaping (T?, String?) -> Void, _ work: @escaping (MobileEngine) throws -> T) {
+        DispatchQueue.global(qos: .userInitiated).async {
+            do {
+                guard let e = self.engine else { return reply(nil, "Magpie isn't running.") }
+                reply(try work(e), nil)
+            } catch {
+                reply(nil, friendlyError(error))
+            }
+        }
+    }
 }

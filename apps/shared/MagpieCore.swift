@@ -43,6 +43,28 @@ struct Entry: Codable, Hashable {
     }
 }
 
+/// One old version of a file, kept by the server (lib/magpie/history.go).
+struct OldVersion: Codable, Hashable, Identifiable {
+    var ID: String
+    var Path: String
+    var Size: Int64
+    var Modified: Date
+    var ModifiedBy: String
+    /// When the server put it aside: the file was replaced or deleted then.
+    var Kept: Date
+    var id: String { self.ID }
+    var name: String { (Path as NSString).lastPathComponent }
+}
+
+/// The engine's errors in words for the screens.
+func friendlyError(_ error: Error) -> String {
+    let msg = (error as NSError).localizedDescription
+    if msg.hasPrefix("offline:") { return "Can't reach Frankfurt right now. Try again in a moment." }
+    if msg.hasPrefix("paused:") { return "Syncing is paused. Resume it first." }
+    if msg.hasPrefix("notfound:") { return "The server no longer has that version." }
+    return msg
+}
+
 struct EngineStatus: Codable, Equatable {
     var Connected = false
     var Accepted = false
