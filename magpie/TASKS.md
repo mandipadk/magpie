@@ -12,11 +12,13 @@ public, and frankfurt:~/code/magpie). Page: https://magpie.mandip.dev (private, 
 
 ## iPhone joined (2026-10-19 18:02 UTC), but doesn't stay connected
 - [x] Hub admitted J7RG4PP ("iPhone") at 18:02 with a valid invite (so from the Mac, with the key)
-- [ ] Every iPhone connection ends ~1 s after it opens, closed by the phone (EOF), and the phone
-      still sends its join token, i.e. it never handled the hub's cluster config. Likely the Files
-      extension stopping or being killed (memory?) on the phone; can't see the phone. Asked the
-      owner for the app's status line, Files, the TestFlight build, and any MagpieFiles crash or
-      JetsamEvent entries in Analytics Data.
+- [x] Every iPhone connection ended ~1 s after it opened. Owner (build 39): app says "Starting", no
+      files, JetsamEvent logs: iOS killed the Files extension for memory. Measured one connection at
+      53 MB peak (scrypt to derive the folder key, 32 MiB, on every launch).
+- [x] Fix (build 40): the app derives the key once and keeps it in the keychain config (folderKey);
+      kept configs get it when the app starts; the extension never runs scrypt; Go memory limit
+      24 MiB. Reconnect peak measured 19.8 MB (was 53). TestPrepareConfig; e2e green
+- [ ] Owner: TestFlight build 40, open the Magpie app once (adds the key), then Files
 
 ## CRITICAL: update from build 10 to 22 hung at Extracting (owner, 2026-10-19 ~15:00)
 - Owner's assistant: build 22's dmg and signature are fine; mounting it with hdiutil on that Mac hung

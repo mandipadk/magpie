@@ -23,7 +23,7 @@ push; it installs the apps exactly as shipped (Developer ID, notarized). "Hub te
 
 | What | Why |
 | --- | --- |
-| The iPhone app on a real iPhone | No iPhone here. The second device in CI e2e runs the iPhone app's engine, not the app or Files |
+| The iPhone app on a real iPhone | No iPhone here. The owner's iPhone (build 39) joined but iOS killed its Files extension for memory (JetsamEvent); build 40 cuts a connection's peak from 53 MB to 20 MB, measured with the same engine on Linux, not on the phone |
 | Files app on iOS (browse, open, save) | Same; only the simulator screenshots of the Magpie app |
 | The owner's own Mac after an update | CI's Mac is fresh each run and updates from build 25; the owner's Mac runs build 10 and froze mounting build 22's image |
 | macOS's two extension processes sharing one engine's files | Seen in CI logs; no corruption seen, not tested for it |
