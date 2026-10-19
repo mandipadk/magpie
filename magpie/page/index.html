@@ -183,7 +183,7 @@ function renderServer(st) {
 
 function renderApps(st) {
   if (st.mac) {
-    $("mac-note").textContent = `Version ${st.mac.version}, ${bytes(st.mac.size)}, macOS 14 or later`;
+    $("mac-note").textContent = `${st.mac.version ? `Version ${st.mac.version}, ` : ""}${bytes(st.mac.size)}, macOS 14 or later`;
     $("mac-act").outerHTML = `<a class="btn ink" id="mac-act" href="${esc(st.mac.url)}">${ICON.dl}Download</a>`;
   } else {
     $("mac-act").textContent = "First build on its way";

@@ -7,8 +7,9 @@
 # Each job also keeps pictures of its screens (sample data) as an artifact.
 #
 # Secrets: ASC_KEY_ID, ASC_ISSUER_ID, ASC_KEY_P8 (App Store Connect API key; the .p8 as is or base64),
-# MAC_DEVID_P12/MAC_DEVID_PASSWORD (Developer ID), IOS_DEV_P12/IOS_DEV_PASSWORD
-# (CI's lasting development key), SPARKLE_ED_KEY (signs Mac updates).
+# MAC_DEVID_P12/MAC_DEVID_PASSWORD (Developer ID), IOS_DIST_P12/IOS_DIST_PASSWORD
+# (CI's lasting Apple Distribution key; see magpie-certs.yml), SPARKLE_ED_KEY
+# (signs Mac updates).
 name: magpie-apple
 
 on:
@@ -270,6 +271,11 @@ jobs:
     needs: engine
     runs-on: macos-15
     timeout-minutes: 90
+    env:
+      # Signed by hand with CI's own Apple Distribution key and App Store
+      # profiles made through the API (Xcode's own sign-in isn't needed).
+      IOS_APP_PROFILE: Magpie iOS App Store
+      IOS_FILES_PROFILE: Magpie Files iOS App Store
     steps:
       - uses: actions/checkout@v4
       - name: Xcode 26 (App Store Connect requires the iOS 26 SDK)
@@ -336,25 +342,34 @@ jobs:
             $PY apps/asc.py capability $b APP_GROUPS
             $PY apps/asc.py bundle $b
           done
-      # CI's lasting development identity: without it, Xcode makes a new
-      # certificate on every throwaway runner until the team's limit is hit.
-      - name: Development identity
+      - name: Distribution identity and App Store profiles
         if: env.NO_KEY != '1'
         env:
-          P12: ${{ secrets.IOS_DEV_P12 }}
-          P12_PASSWORD: ${{ secrets.IOS_DEV_PASSWORD }}
+          P12: ${{ secrets.IOS_DIST_P12 }}
+          P12_PASSWORD: ${{ secrets.IOS_DIST_PASSWORD }}
         run: |
-          [[ -n "$P12" ]] || { echo "::warning::no IOS_DEV_P12; Xcode will make a new development certificate"; exit 0; }
-          KC="$RUNNER_TEMP/dev.keychain-db"
+          [[ -n "$P12" ]] || { echo "::error::no IOS_DIST_P12 (run magpie-certs make-ci-dist)"; exit 1; }
+          KC="$RUNNER_TEMP/dist.keychain-db"
           KCPASS=$(openssl rand -hex 16)
           security create-keychain -p "$KCPASS" "$KC"
           security set-keychain-settings -lut 3600 "$KC"
           security unlock-keychain -p "$KCPASS" "$KC"
-          printf '%s' "$P12" | base64 --decode > "$RUNNER_TEMP/dev.p12"
-          security import "$RUNNER_TEMP/dev.p12" -k "$KC" -P "$P12_PASSWORD" -T /usr/bin/codesign -T /usr/bin/security
-          rm -f "$RUNNER_TEMP/dev.p12"
+          printf '%s' "$P12" | base64 --decode > "$RUNNER_TEMP/dist.p12"
+          security import "$RUNNER_TEMP/dist.p12" -k "$KC" -P "$P12_PASSWORD" -T /usr/bin/codesign -T /usr/bin/security
+          rm -f "$RUNNER_TEMP/dist.p12"
           security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KCPASS" "$KC" >/dev/null
           security list-keychains -d user -s "$KC" $(security list-keychains -d user | tr -d '"')
+          SERIAL=$(security find-certificate -c "Apple Distribution" -p "$KC" | openssl x509 -noout -serial | cut -d= -f2)
+          export ASC_KEY_PATH="$RUNNER_TEMP/keys/AuthKey_$ASC_KEY_ID.p8"
+          PY="$RUNNER_TEMP/venv/bin/python"
+          $PY apps/asc.py store-profile dev.mandip.magpie "$IOS_APP_PROFILE" "$SERIAL" "$RUNNER_TEMP/app.mobileprovision"
+          $PY apps/asc.py store-profile dev.mandip.magpie.files "$IOS_FILES_PROFILE" "$SERIAL" "$RUNNER_TEMP/files.mobileprovision"
+          for d in "$HOME/Library/MobileDevice/Provisioning Profiles" "$HOME/Library/Developer/Xcode/UserData/Provisioning Profiles"; do mkdir -p "$d"; done
+          for f in app files; do
+            U=$(security cms -D -i "$RUNNER_TEMP/$f.mobileprovision" | plutil -extract UUID raw -)
+            cp "$RUNNER_TEMP/$f.mobileprovision" "$HOME/Library/MobileDevice/Provisioning Profiles/$U.mobileprovision"
+            cp "$RUNNER_TEMP/$f.mobileprovision" "$HOME/Library/Developer/Xcode/UserData/Provisioning Profiles/$U.mobileprovision"
+          done
       - name: Archive
         if: env.NO_KEY != '1'
         run: |
@@ -362,9 +377,162 @@ jobs:
           cd apps/ios
           xcodebuild -project Magpie.xcodeproj -scheme Magpie -configuration Release \
             -destination 'generic/platform=iOS' -archivePath "$RUNNER_TEMP/Magpie.xcarchive" \
-            -allowProvisioningUpdates \
-            -authenticationKeyPath "$RUNNER_TEMP/keys/AuthKey_$ASC_KEY_ID.p8" \
-            -authenticationKeyID "$ASC_KEY_ID" -authenticationKeyIssuerID "$ASC_ISSUER_ID" \
+            DEVELOPMENT_TEAM=$DEVELOPMENT_TEAM CURRENT_PROJECT_VERSION=$BUILD_NUMBER \
+            archive | xcbeautify
+      - name: Check the extension
+        if: env.NO_KEY != '1'
+        run: |
+          APP="$RUNNER_TEMP/Magpie.xcarchive/Products/Applications/Magpie.app"
+          EXT="$APP/PlugIns/MagpieFiles.appex"
+          test -d "$EXT" || { echo "::error::no File Provider extension in the app"; exit 1; }
+          plutil -extract NSExtension.NSExtensionPointIdentifier raw "$EXT/Info.plist" | grep -qx com.apple.fileprovider-nonui
+          codesign -d --entitlements - "$EXT" 2>/dev/null | tee /dev/stderr | grep -q group.dev.mandip.magpie
+          if otool -L "$EXT/MagpieFiles" | tail -n +2 | grep -vE '^\s+(/usr/lib/|/System/Library/|@rpath/libswift)'; then
+            echo "::error::the extension links a library that is not part of iOS"; exit 1
+          fi
+      - name: Upload to TestFlight
+        if: env.NO_KEY != '1' && (github.event_name == 'push' || inputs.publish)
+        run: |
+          cat > "$RUNNER_TEMP/export.plist" <<EOF
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0"><dict>
+            <key>method</key><string>app-store-connect</string>
+            <key>destination</key><string>export</string>
+            <key>teamID</key><string>$DEVELOPMENT_TEAM</string>
+            <key>signingStyle</key><string>manual</string>
+            <key>signingCertificate</key><string>Apple Distribution</string>
+            <key>provisioningProfiles</key><dict>
+              <key>dev.mandip.magpie</key><string>$IOS_APP_PROFILE</string>
+              <key>dev.mandip.magpie.files</key><string>$IOS_FILES_PROFILE</string>
+            </dict>
+            <key>manageAppVersionAndBuildNumber</key><false/>
+          </dict></plist>
+          EOF
+          xcodebuild -exportArchive -archivePath "$RUNNER_TEMP/Magpie.xcarchive" \
+            -exportOptionsPlist "$RUNNER_TEMP/export.plist" -exportPath "$RUNNER_TEMP/export"
+          # altool finds the API key by name in ~/.appstoreconnect/private_keys
+          mkdir -p ~/.appstoreconnect/private_keys
+          cp "$RUNNER_TEMP/keys/AuthKey_$ASC_KEY_ID.p8" ~/.appstoreconnect/private_keys/
+          xcrun altool --upload-app -f "$RUNNER_TEMP/export/Magpie.ipa" -t ios \
+            --apiKey "$ASC_KEY_ID" --apiIssuer "$ASC_ISSUER_ID" --output-format normal
+          rm -rf ~/.appstoreconnect/private_keys
+      - name: Clean up the key and keychain
+        if: always()
+        run: |
+          rm -rf "$RUNNER_TEMP/keys"
+          security delete-keychain "$RUNNER_TEMP/signing.keychain-db" 2>/dev/null || true
+
+  ios:
+    needs: engine
+    runs-on: macos-15
+    timeout-minutes: 90
+    env:
+      # Signed by hand with CI's own Apple Distribution key and App Store
+      # profiles made through the API (Xcode's own sign-in isn't needed).
+      IOS_APP_PROFILE: Magpie iOS App Store
+      IOS_FILES_PROFILE: Magpie Files iOS App Store
+    steps:
+      - uses: actions/checkout@v4
+      - name: Xcode 26 (App Store Connect requires the iOS 26 SDK)
+        run: |
+          XC=$(ls -d /Applications/Xcode_26*.app | sort -V | tail -1)
+          echo "using $XC"
+          sudo xcode-select -s "$XC"
+          xcodebuild -version
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - name: Engine framework (gomobile)
+        run: apps/build-engine.sh ios
+      - name: Generate the Xcode project
+        run: |
+          brew install xcodegen
+          cd apps/ios && xcodegen generate
+      - name: Pick a Simulator
+        run: |
+          SIM=$(xcrun simctl list devices available -j | python3 -c "import json,sys; d=json.load(sys.stdin)['devices']; print(next(x['udid'] for k,v in d.items() if 'iOS' in k for x in v if x['name'].startswith('iPhone')))")
+          echo "simulator $SIM"
+          echo "SIM=$SIM" >> "$GITHUB_ENV"
+      - name: Screens (sample data)
+        run: |
+          set -o pipefail
+          cd apps/ios
+          xcodebuild test -project Magpie.xcodeproj -scheme Screens -destination "id=$SIM" \
+            -resultBundlePath "$RUNNER_TEMP/screens.xcresult" CODE_SIGNING_ALLOWED=NO | xcbeautify
+      - name: Export screenshots
+        if: always()
+        run: |
+          mkdir -p "$RUNNER_TEMP/screens"
+          [[ -d "$RUNNER_TEMP/screens.xcresult" ]] && xcrun xcresulttool export attachments --path "$RUNNER_TEMP/screens.xcresult" --output-path "$RUNNER_TEMP/screens" || true
+          ls -la "$RUNNER_TEMP/screens"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: screens-iphone
+          path: ${{ runner.temp }}/screens
+          if-no-files-found: ignore
+          retention-days: 14
+      - name: API key
+        env:
+          ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+        run: |
+          [[ -n "$ASC_KEY_P8" ]] || { echo "::notice::No App Store Connect key yet; stopping before signing"; echo "NO_KEY=1" >> "$GITHUB_ENV"; exit 0; }
+          # Saved key IDs can carry a trailing newline; Xcode won't accept that.
+          ASC_KEY_ID=$(printf '%s' "$ASC_KEY_ID" | tr -d '[:space:]'); ASC_ISSUER_ID=$(printf '%s' "$ASC_ISSUER_ID" | tr -d '[:space:]')
+          echo "::add-mask::$ASC_KEY_ID"; echo "::add-mask::$ASC_ISSUER_ID"
+          { echo "ASC_KEY_ID=$ASC_KEY_ID"; echo "ASC_ISSUER_ID=$ASC_ISSUER_ID"; } >> "$GITHUB_ENV"
+          mkdir -p "$RUNNER_TEMP/keys"
+          if [[ "$ASC_KEY_P8" == -----BEGIN* ]]; then printf '%s' "$ASC_KEY_P8"; else printf '%s' "$ASC_KEY_P8" | base64 --decode; fi > "$RUNNER_TEMP/keys/AuthKey_$ASC_KEY_ID.p8"
+          python3 -m venv "$RUNNER_TEMP/venv" && "$RUNNER_TEMP/venv/bin/pip" -q install 'pyjwt[crypto]'
+      - name: Bundle IDs and capabilities
+        if: env.NO_KEY != '1'
+        run: |
+          export ASC_KEY_PATH="$RUNNER_TEMP/keys/AuthKey_$ASC_KEY_ID.p8"
+          PY="$RUNNER_TEMP/venv/bin/python"
+          $PY apps/asc.py ensure-bundle dev.mandip.magpie "Magpie"
+          $PY apps/asc.py ensure-bundle dev.mandip.magpie.files "Magpie Files"
+          for b in dev.mandip.magpie dev.mandip.magpie.files; do
+            $PY apps/asc.py capability $b APP_GROUPS
+            $PY apps/asc.py bundle $b
+          done
+      - name: Distribution identity and App Store profiles
+        if: env.NO_KEY != '1'
+        env:
+          P12: ${{ secrets.IOS_DIST_P12 }}
+          P12_PASSWORD: ${{ secrets.IOS_DIST_PASSWORD }}
+        run: |
+          [[ -n "$P12" ]] || { echo "::error::no IOS_DIST_P12 (run magpie-certs make-ci-dist)"; exit 1; }
+          KC="$RUNNER_TEMP/dist.keychain-db"
+          KCPASS=$(openssl rand -hex 16)
+          security create-keychain -p "$KCPASS" "$KC"
+          security set-keychain-settings -lut 3600 "$KC"
+          security unlock-keychain -p "$KCPASS" "$KC"
+          printf '%s' "$P12" | base64 --decode > "$RUNNER_TEMP/dist.p12"
+          security import "$RUNNER_TEMP/dist.p12" -k "$KC" -P "$P12_PASSWORD" -T /usr/bin/codesign -T /usr/bin/security
+          rm -f "$RUNNER_TEMP/dist.p12"
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KCPASS" "$KC" >/dev/null
+          security list-keychains -d user -s "$KC" $(security list-keychains -d user | tr -d '"')
+          SERIAL=$(security find-certificate -c "Apple Distribution" -p "$KC" | openssl x509 -noout -serial | cut -d= -f2)
+          export ASC_KEY_PATH="$RUNNER_TEMP/keys/AuthKey_$ASC_KEY_ID.p8"
+          PY="$RUNNER_TEMP/venv/bin/python"
+          $PY apps/asc.py store-profile dev.mandip.magpie "$IOS_APP_PROFILE" "$SERIAL" "$RUNNER_TEMP/app.mobileprovision"
+          $PY apps/asc.py store-profile dev.mandip.magpie.files "$IOS_FILES_PROFILE" "$SERIAL" "$RUNNER_TEMP/files.mobileprovision"
+          for d in "$HOME/Library/MobileDevice/Provisioning Profiles" "$HOME/Library/Developer/Xcode/UserData/Provisioning Profiles"; do mkdir -p "$d"; done
+          for f in app files; do
+            U=$(security cms -D -i "$RUNNER_TEMP/$f.mobileprovision" | plutil -extract UUID raw -)
+            cp "$RUNNER_TEMP/$f.mobileprovision" "$HOME/Library/MobileDevice/Provisioning Profiles/$U.mobileprovision"
+            cp "$RUNNER_TEMP/$f.mobileprovision" "$HOME/Library/Developer/Xcode/UserData/Provisioning Profiles/$U.mobileprovision"
+          done
+      - name: Archive
+        if: env.NO_KEY != '1'
+        run: |
+          set -o pipefail
+          cd apps/ios
+          xcodebuild -project Magpie.xcodeproj -scheme Magpie -configuration Release \
+            -destination 'generic/platform=iOS' -archivePath "$RUNNER_TEMP/Magpie.xcarchive" \
             DEVELOPMENT_TEAM=$DEVELOPMENT_TEAM CURRENT_PROJECT_VERSION=$BUILD_NUMBER \
             archive | xcbeautify
       - name: Check the extension

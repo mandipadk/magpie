@@ -48,7 +48,15 @@ async function macRelease() {
     const rel = await r.json();
     const dmg = rel.assets?.find((a) => a.name === "Magpie.dmg");
     if (!dmg) return null;
-    const version = (rel.name || "").match(/[\d.]+(?: \(\d+\))?/)?.[0] || "";
+    // The version is in the Sparkle appcast published beside the disk image.
+    let version = "";
+    const feed = rel.assets.find((a) => a.name === "appcast.xml");
+    if (feed) {
+      const xml = await (await fetch(feed.browser_download_url, { signal: AbortSignal.timeout(8000) })).text();
+      const short = xml.match(/<sparkle:shortVersionString>([^<]+)</)?.[1];
+      const build = xml.match(/<sparkle:version>([^<]+)</)?.[1];
+      if (short) version = build ? `${short} (${build})` : short;
+    }
     return { url: DMG, version, size: dmg.size, updated: dmg.updated_at };
   } catch {
     return null;
