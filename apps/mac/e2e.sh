@@ -187,11 +187,11 @@ step "4. Mac save -> phone, phone save -> Mac (on demand)"
 save "$CS/From the Mac.txt" "Saved on the Mac at $(date -u +%H:%M:%S)"
 open "magpie1:add-device"
 waitfor 30 "Add Device" ui 'get window "Add a Device"'
-sleep 8  # the invite is made when the window opens
+# the invite is made when the window opens, once the extension answers
+copied() { key "Add a Device" 8 command; sleep 1; INVITE=$(pbpaste); [[ "$INVITE" == magpie1:join\?* && "$INVITE" != "$LINK" ]]; }
 pbcopy < /dev/null
-key "Add a Device" 8 command  # Command-C: Copy Link
-sleep 1
-INVITE=$(pbpaste)
+INVITE=""
+for _ in $(seq 30); do copied && break; sleep 2; done
 shot "4-add-device"
 [[ "$INVITE" == magpie1:join\?* && "$INVITE" != "$LINK" ]] || fail "Add Device didn't copy an invite (see 4-add-device)"
 "$OUT/bin/magpie-phone" --dir "$OUT/phone" join "$INVITE"
