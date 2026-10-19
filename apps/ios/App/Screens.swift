@@ -1,0 +1,354 @@
+import AVFoundation
+import CoreImage.CIFilterBuiltins
+import SwiftUI
+
+// MARK: Home
+
+struct HomeView: View {
+    @EnvironmentObject private var model: AppModel
+    @State private var conflict: Conflict?
+
+    var body: some View {
+        NavigationStack {
+            List {
+                Section {
+                    hero
+                        .listRowBackground(Color.clear)
+                        .listRowInsets(EdgeInsets())
+                }
+                if !model.conflicts.isEmpty {
+                    Section("Needs you") {
+                        ForEach(model.conflicts) { c in
+                            Button { conflict = c } label: {
+                                row(icon: "exclamationmark.triangle", tint: .orange, title: c.fileName,
+                                    subtitle: "Changed here and on \(c.CopyBy.isEmpty ? "another device" : c.CopyBy)", chevron: true)
+                            }
+                            .foregroundStyle(.primary)
+                        }
+                    }
+                }
+                Section("This iPhone") {
+                    NavigationLink { KeptView() } label: {
+                        row(icon: "arrow.down.circle", title: "Kept downloaded", value: model.kept.isEmpty ? "None" : "\(model.kept.count)")
+                    }
+                    NavigationLink { DevicesView() } label: {
+                        row(icon: "laptopcomputer.and.iphone", title: "Devices", value: "\(model.devices.count)")
+                    }
+                    Toggle(isOn: Binding(get: { model.status.Paused }, set: { model.setPaused($0) })) {
+                        row(icon: "pause", title: "Pause syncing")
+                    }
+                }
+                Section {
+                    Link(destination: URL(string: "shareddocuments://")!) {
+                        row(icon: "folder", title: "Open in Files", chevron: true)
+                    }
+                    .foregroundStyle(.primary)
+                } footer: {
+                    Text("Magpie is under Locations in the Files app. Files are encrypted on this iPhone before they leave it; your server stores them but can't read them.")
+                }
+            }
+            .navigationTitle("")
+            .toolbar(.hidden, for: .navigationBar)
+            .sheet(item: $conflict) { c in
+                ConflictSheet(conflict: c)
+                    .presentationDetents([.medium])
+            }
+            .refreshable { model.refresh() }
+        }
+    }
+
+    private var hero: some View {
+        VStack(spacing: 6) {
+            Image(systemName: heroSymbol)
+                .font(.system(size: 28, weight: .medium))
+                .foregroundStyle(Color.accentColor)
+                .frame(width: 64, height: 64)
+                .background(Circle().fill(Color.accentColor.opacity(0.16)))
+                .contentTransition(.symbolEffect(.replace))
+            Text(model.headline).font(.title3.weight(.semibold))
+            Text(model.detail).font(.subheadline).foregroundStyle(.secondary).monospacedDigit()
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 24)
+        .animation(.easeOut(duration: 0.2), value: model.headline)
+    }
+
+    private var heroSymbol: String {
+        if model.status.Paused { return "pause" }
+        if model.status.UploadsLeft > 0 || !model.status.Ready { return "arrow.triangle.2.circlepath" }
+        if !model.status.Connected { return "icloud.slash" }
+        return "checkmark.icloud"
+    }
+}
+
+func row(icon: String, tint: Color = .accentColor, title: String, subtitle: String? = nil, value: String? = nil, chevron: Bool = false) -> some View {
+    HStack(spacing: 12) {
+        Image(systemName: icon).foregroundStyle(tint).frame(width: 24)
+        VStack(alignment: .leading, spacing: 2) {
+            Text(title).lineLimit(1).truncationMode(.middle)
+            if let subtitle { Text(subtitle).font(.footnote).foregroundStyle(.secondary).lineLimit(2) }
+        }
+        Spacer(minLength: 8)
+        if let value { Text(value).foregroundStyle(.secondary).monospacedDigit() }
+        if chevron { Image(systemName: "chevron.right").font(.footnote.weight(.semibold)).foregroundStyle(.tertiary) }
+    }
+    .frame(minHeight: 32)
+}
+
+// MARK: Conflict
+
+struct ConflictSheet: View {
+    let conflict: Conflict
+    @EnvironmentObject private var model: AppModel
+    @Environment(\.dismiss) private var dismiss
+    @State private var choice: Keep = .both
+    @State private var working = false
+
+    var body: some View {
+        VStack(spacing: 12) {
+            VStack(spacing: 4) {
+                Text(conflict.fileName).font(.headline)
+                Text("Changed on two devices while one was offline.").font(.subheadline).foregroundStyle(.secondary)
+            }
+            .multilineTextAlignment(.center)
+            .padding(.top, 20)
+            option(.both, icon: "doc.on.doc", title: "Keep both", subtitle: "\(other)'s copy is saved beside it")
+            option(.original, icon: "iphone", title: "Keep the file as it is", subtitle: "Removes \(other)'s copy")
+            option(.copy, icon: "laptopcomputer", title: "Keep \(other)'s", subtitle: conflict.When.formatted(date: .abbreviated, time: .shortened))
+            Button {
+                working = true
+                Task {
+                    await model.resolve(conflict, keep: choice)
+                    dismiss()
+                }
+            } label: {
+                Text(buttonTitle).font(.headline).frame(maxWidth: .infinity, minHeight: 50)
+            }
+            .buttonStyle(.borderedProminent)
+            .tint(.primary)
+            .foregroundStyle(Color(uiColor: .systemBackground))
+            .clipShape(RoundedRectangle(cornerRadius: 14))
+            .disabled(working)
+        }
+        .padding(.horizontal, 16)
+        .padding(.bottom, 16)
+    }
+
+    private var other: String { conflict.CopyBy.isEmpty ? "the other device" : conflict.CopyBy }
+
+    private var buttonTitle: String {
+        switch choice {
+        case .both: return "Keep both"
+        case .original: return "Keep the file"
+        case .copy: return "Keep \(other)'s"
+        }
+    }
+
+    private func option(_ k: Keep, icon: String, title: String, subtitle: String) -> some View {
+        Button { choice = k } label: {
+            HStack(spacing: 12) {
+                Image(systemName: icon).foregroundStyle(Color.accentColor).frame(width: 24)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(title).foregroundStyle(.primary)
+                    Text(subtitle).font(.footnote).foregroundStyle(.secondary)
+                }
+                Spacer()
+            }
+            .padding(12)
+            .frame(minHeight: 56)
+            .background(RoundedRectangle(cornerRadius: 12).strokeBorder(choice == k ? Color.accentColor : Color(uiColor: .separator), lineWidth: choice == k ? 2 : 1))
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .animation(.easeOut(duration: 0.15), value: choice)
+    }
+}
+
+// MARK: Kept downloaded and devices
+
+struct KeptView: View {
+    @EnvironmentObject private var model: AppModel
+
+    var body: some View {
+        List {
+            if model.kept.isEmpty {
+                Text("Nothing yet. In the Files app, touch and hold a file or folder in Magpie and choose Keep Downloaded.")
+                    .foregroundStyle(.secondary)
+            }
+            ForEach(model.kept, id: \.self) { p in
+                row(icon: "arrow.down.circle.fill", title: (p as NSString).lastPathComponent, subtitle: p.contains("/") ? (p as NSString).deletingLastPathComponent : nil)
+                    .swipeActions {
+                        Button("Remove Download") { model.setKept(p, on: false) }.tint(.orange)
+                    }
+            }
+        }
+        .navigationTitle("Kept downloaded")
+    }
+}
+
+struct DevicesView: View {
+    @EnvironmentObject private var model: AppModel
+
+    var body: some View {
+        List {
+            Section {
+                ForEach(model.devices) { d in
+                    row(icon: d.Hub ? "server.rack" : (d.ThisOne ? "iphone" : "laptopcomputer"), title: d.Name,
+                        subtitle: d.ThisOne ? "This iPhone" : d.Hub ? "Server. Holds everything encrypted and can't read it." : "Shares this Magpie")
+                }
+            } footer: {
+                Text("Files are encrypted on each device with a key the server never sees.")
+            }
+            Section {
+                NavigationLink { AddDeviceView() } label: { row(icon: "plus", title: "Add a device") }
+            }
+        }
+        .navigationTitle("Devices")
+    }
+}
+
+// MARK: Add a device
+
+struct AddDeviceView: View {
+    @EnvironmentObject private var model: AppModel
+    @State private var link: String?
+    @State private var problem: String?
+
+    var body: some View {
+        VStack(spacing: 16) {
+            if let link, let img = qr(link) {
+                Image(uiImage: img)
+                    .interpolation(.none)
+                    .resizable()
+                    .frame(width: 200, height: 200)
+                    .padding(16)
+                    .background(RoundedRectangle(cornerRadius: 12).fill(.white))
+                Text("On the new device, open Magpie and choose Join, then scan this. It works once, for 15 minutes.")
+                    .font(.subheadline).foregroundStyle(.secondary).multilineTextAlignment(.center)
+                ShareLink(item: link) { Label("Share link", systemImage: "square.and.arrow.up") }
+                    .frame(minHeight: 44)
+            } else if let problem {
+                Label(problem, systemImage: "exclamationmark.triangle").foregroundStyle(.orange)
+            } else {
+                ProgressView().frame(height: 232)
+            }
+            Spacer()
+        }
+        .padding(24)
+        .navigationTitle("Add a device")
+        .navigationBarTitleDisplayMode(.inline)
+        .task {
+            switch await model.invite() {
+            case .success(let l): link = l
+            case .failure(let f): problem = f.message
+            }
+        }
+    }
+
+    private func qr(_ s: String) -> UIImage? {
+        let f = CIFilter.qrCodeGenerator()
+        f.message = Data(s.utf8)
+        f.correctionLevel = "M"
+        guard let out = f.outputImage?.transformed(by: .init(scaleX: 10, y: 10)),
+              let cg = CIContext().createCGImage(out, from: out.extent) else { return nil }
+        return UIImage(cgImage: cg)
+    }
+}
+
+// MARK: Join
+
+struct JoinView: View {
+    @EnvironmentObject private var model: AppModel
+    @State private var pasting = false
+    @State private var working = false
+
+    var body: some View {
+        VStack(spacing: 16) {
+            Spacer(minLength: 24)
+            Image(systemName: "icloud")
+                .font(.system(size: 28, weight: .medium))
+                .foregroundStyle(Color.accentColor)
+                .frame(width: 64, height: 64)
+                .background(Circle().fill(Color.accentColor.opacity(0.16)))
+            Text("Join your Magpie").font(.title3.weight(.semibold))
+            Text("On your Mac, open Magpie's Settings, then Devices, then Add Device, and scan the code.")
+                .font(.subheadline).foregroundStyle(.secondary).multilineTextAlignment(.center)
+                .frame(maxWidth: 280)
+            Scanner { code in
+                guard !working, code.hasPrefix("magpie1:") else { return }
+                join(code)
+            }
+            .frame(height: 260)
+            .clipShape(RoundedRectangle(cornerRadius: 16))
+            .padding(.horizontal, 16)
+            if let problem = model.problem {
+                Label(problem, systemImage: "exclamationmark.triangle").foregroundStyle(.orange).font(.footnote)
+            }
+            Button("Paste a link instead") {
+                if let s = UIPasteboard.general.string { join(s) }
+            }
+            .frame(minHeight: 44)
+            .disabled(working)
+            Spacer()
+        }
+        .padding(.horizontal, 16)
+    }
+
+    private func join(_ link: String) {
+        working = true
+        Task {
+            await model.join(link: link, deviceName: AppModel.deviceName)
+            working = false
+        }
+    }
+}
+
+/// The camera, reading QR codes.
+struct Scanner: UIViewRepresentable {
+    let found: (String) -> Void
+
+    func makeUIView(context: Context) -> PreviewView {
+        let v = PreviewView()
+        v.backgroundColor = .black
+        let session = AVCaptureSession()
+        if let cam = AVCaptureDevice.default(for: .video), let input = try? AVCaptureDeviceInput(device: cam), session.canAddInput(input) {
+            session.addInput(input)
+            let out = AVCaptureMetadataOutput()
+            if session.canAddOutput(out) {
+                session.addOutput(out)
+                out.setMetadataObjectsDelegate(context.coordinator, queue: .main)
+                out.metadataObjectTypes = [.qr]
+            }
+        }
+        v.preview.session = session
+        v.preview.videoGravity = .resizeAspectFill
+        context.coordinator.session = session
+        DispatchQueue.global(qos: .userInitiated).async { session.startRunning() }
+        return v
+    }
+
+    func updateUIView(_ uiView: PreviewView, context: Context) {}
+
+    static func dismantleUIView(_ uiView: PreviewView, coordinator: Coordinator) {
+        coordinator.session?.stopRunning()
+    }
+
+    func makeCoordinator() -> Coordinator { Coordinator(found: found) }
+
+    final class Coordinator: NSObject, AVCaptureMetadataOutputObjectsDelegate {
+        let found: (String) -> Void
+        var session: AVCaptureSession?
+        init(found: @escaping (String) -> Void) { self.found = found }
+
+        func metadataOutput(_ output: AVCaptureMetadataOutput, didOutput objects: [AVMetadataObject], from connection: AVCaptureConnection) {
+            if let code = (objects.first as? AVMetadataMachineReadableCodeObject)?.stringValue {
+                found(code)
+            }
+        }
+    }
+
+    final class PreviewView: UIView {
+        override class var layerClass: AnyClass { AVCaptureVideoPreviewLayer.self }
+        var preview: AVCaptureVideoPreviewLayer { layer as! AVCaptureVideoPreviewLayer }
+    }
+}

@@ -1,0 +1,145 @@
+# Magpie for Mac: a menu bar app with Magpie in the Finder sidebar (a File
+# Provider extension, where the engine runs). Shipped outside the App Store:
+# Developer ID, notarized, as a .dmg, updated with Sparkle. Generate the
+# Xcode project with `xcodegen` (see .github/workflows/apple.yml).
+name: MagpieMac
+options:
+  bundleIdPrefix: dev.mandip
+  deploymentTarget:
+    macOS: "14.0"
+  createIntermediateGroups: true
+packages:
+  Sparkle:
+    url: https://github.com/sparkle-project/Sparkle
+    exactVersion: 2.6.4
+settings:
+  base:
+    DEVELOPMENT_TEAM: ${DEVELOPMENT_TEAM}
+    CODE_SIGN_STYLE: Manual
+    CODE_SIGN_IDENTITY: Developer ID Application
+    OTHER_CODE_SIGN_FLAGS: --timestamp
+    MARKETING_VERSION: "1.0"
+    CURRENT_PROJECT_VERSION: ${BUILD_NUMBER}
+    SWIFT_VERSION: "5.9"
+    ENABLE_HARDENED_RUNTIME: YES
+    DEAD_CODE_STRIPPING: YES
+targets:
+  Magpie:
+    type: application
+    platform: macOS
+    sources:
+      - path: App
+      - path: ../shared/MagpieCore.swift
+      - path: ../shared/ServiceProtocol.swift
+      - path: ../shared/AppModel.swift
+    info:
+      path: App/Info.plist
+      properties:
+        CFBundleName: Magpie
+        CFBundleDisplayName: Magpie
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        LSApplicationCategoryType: public.app-category.productivity
+        LSMinimumSystemVersion: $(MACOSX_DEPLOYMENT_TARGET)
+        ITSAppUsesNonExemptEncryption: false
+        # a menu bar app: no Dock icon
+        LSUIElement: true
+        NSHumanReadableCopyright: Magpie, built on Syncthing. MPL 2.0.
+        SUFeedURL: https://github.com/mandipadk/magpie/releases/download/mac-latest/appcast.xml
+        SUPublicEDKey: rON8JF21MYg0RuFqEM5a/juUpiFBo0J22UVSVDP0LXw=
+        SUEnableAutomaticChecks: true
+        SUScheduledCheckInterval: 86400
+    entitlements:
+      path: App/Magpie.entitlements
+      properties:
+        com.apple.security.application-groups: [UK74VYMUP7.dev.mandip.magpie]
+        keychain-access-groups: [UK74VYMUP7.dev.mandip.magpie.shared]
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: dev.mandip.magpie
+        PRODUCT_NAME: Magpie
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
+        PROVISIONING_PROFILE_SPECIFIER: ${MAC_APP_PROFILE}
+    dependencies:
+      - target: MagpieFiles
+      - package: Sparkle
+  MagpieFiles:
+    type: app-extension
+    platform: macOS
+    sources:
+      - path: ../shared/FileProvider
+      - path: ../shared/MagpieCore.swift
+      - path: ../shared/ServiceProtocol.swift
+    info:
+      path: Files/Info.plist
+      properties:
+        CFBundleDisplayName: Magpie
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        LSMinimumSystemVersion: $(MACOSX_DEPLOYMENT_TARGET)
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.fileprovider-nonui
+          NSExtensionPrincipalClass: $(PRODUCT_MODULE_NAME).FileProviderExtension
+          NSExtensionFileProviderSupportsEnumeration: true
+          NSExtensionFileProviderDocumentGroup: UK74VYMUP7.dev.mandip.magpie
+          NSExtensionFileProviderActions:
+            - NSExtensionFileProviderActionIdentifier: dev.mandip.magpie.keep
+              NSExtensionFileProviderActionName: Keep Downloaded
+              NSExtensionFileProviderActionActivationRule: "SUBQUERY ( fileproviderItems, $fileproviderItem, $fileproviderItem.userInfo.kept == NO ).@count > 0"
+            - NSExtensionFileProviderActionIdentifier: dev.mandip.magpie.free
+              NSExtensionFileProviderActionName: Remove Download
+              NSExtensionFileProviderActionActivationRule: "SUBQUERY ( fileproviderItems, $fileproviderItem, $fileproviderItem.isDownloaded == YES ).@count > 0"
+    entitlements:
+      path: Files/MagpieFiles.entitlements
+      properties:
+        com.apple.security.app-sandbox: true
+        com.apple.security.network.client: true
+        com.apple.security.application-groups: [UK74VYMUP7.dev.mandip.magpie]
+        keychain-access-groups: [UK74VYMUP7.dev.mandip.magpie.shared]
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: dev.mandip.magpie.files
+        PRODUCT_NAME: MagpieFiles
+        PROVISIONING_PROFILE_SPECIFIER: ${MAC_FILES_PROFILE}
+        FRAMEWORK_SEARCH_PATHS: [$(SRCROOT)/../build]
+        OTHER_LDFLAGS: [-framework, Mobile, -lresolv]
+    dependencies:
+      - framework: ../build/Mobile.xcframework
+        embed: false
+  Screens:
+    # Draws every window and panel with sample data into PNGs
+    # (TEST_RUNNER_SNAPSHOT_DIR), for review before a release.
+    type: bundle.unit-test
+    platform: macOS
+    sources:
+      - path: Tests
+      - path: App
+      - path: ../shared/MagpieCore.swift
+      - path: ../shared/ServiceProtocol.swift
+      - path: ../shared/AppModel.swift
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: dev.mandip.magpie.screens
+        GENERATE_INFOPLIST_FILE: YES
+        CODE_SIGN_IDENTITY: "-"
+        CODE_SIGN_STYLE: Manual
+        PROVISIONING_PROFILE_SPECIFIER: ""
+        OTHER_SWIFT_FLAGS: [-DSCREENS]
+    dependencies:
+      - package: Sparkle
+schemes:
+  Magpie:
+    build:
+      targets:
+        Magpie: all
+        MagpieFiles: all
+    archive:
+      config: Release
+  Screens:
+    build:
+      targets:
+        Screens: [test]
+    test:
+      config: Debug
+      targets: [Screens]

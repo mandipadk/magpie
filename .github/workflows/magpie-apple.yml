@@ -1,0 +1,397 @@
+# Builds Magpie's apps on GitHub's macOS runners:
+#   - the engine (lib/magpie/mobile) as Mobile.xcframework with gomobile
+#   - the Mac app (menu bar + File Provider extension), signed with the
+#     owner's Developer ID, notarized, stapled, and published with a Sparkle
+#     appcast on the mac-latest release (the Magpie page links Magpie.dmg)
+#   - the iPhone app (app + File Provider extension), sent to TestFlight
+# Each job also keeps pictures of its screens (sample data) as an artifact.
+name: magpie-apple
+
+on:
+  workflow_dispatch:
+    inputs:
+      publish:
+        description: Publish the Mac .dmg and send the iPhone build to TestFlight
+        type: boolean
+        default: true
+  push:
+    branches: [magpie]
+    paths:
+      - apps/**
+      - lib/magpie/**
+      - .github/workflows/magpie-apple.yml
+
+concurrency:
+  group: magpie-apple
+  cancel-in-progress: true
+
+env:
+  DEVELOPMENT_TEAM: UK74VYMUP7
+  BUILD_NUMBER: ${{ github.run_number }}
+  SPARKLE_VERSION: 2.6.4
+
+jobs:
+  engine:
+    # The engine against a real hub, as the server pipeline runs it.
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - name: Build the hub
+        run: go run build.go -no-upgrade build syncthing
+      - name: Engine and invite tests
+        run: |
+          go vet ./lib/magpie/... ./cmd/magpie-hubd
+          MAGPIE_SYNCTHING=$PWD/syncthing go test -count=1 ./lib/magpie/... ./cmd/magpie-hubd
+
+  mac:
+    needs: engine
+    runs-on: macos-15
+    timeout-minutes: 90
+    permissions:
+      contents: write
+    env:
+      MAC_APP_PROFILE: Magpie Mac Developer ID
+      MAC_FILES_PROFILE: Magpie Files Developer ID
+    steps:
+      - uses: actions/checkout@v4
+      - name: Xcode 26
+        run: |
+          XC=$(ls -d /Applications/Xcode_26*.app | sort -V | tail -1)
+          echo "using $XC"
+          sudo xcode-select -s "$XC"
+          xcodebuild -version
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - name: Engine framework (gomobile)
+        run: apps/build-engine.sh macos
+      - name: Generate the Xcode project
+        run: |
+          brew install xcodegen
+          cd apps/mac && xcodegen generate
+      - name: Screens (sample data)
+        run: |
+          set -o pipefail
+          cd apps/mac
+          SNAPSHOT_DIR="$RUNNER_TEMP/screens" xcodebuild test -project MagpieMac.xcodeproj -scheme Screens \
+            -destination 'platform=macOS' CODE_SIGNING_ALLOWED=NO | xcbeautify
+        env:
+          TEST_RUNNER_SNAPSHOT_DIR: ${{ runner.temp }}/screens
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: screens-mac
+          path: ${{ runner.temp }}/screens
+          if-no-files-found: ignore
+          retention-days: 14
+      - name: Developer ID certificate
+        id: devid
+        env:
+          P12: ${{ secrets.MAC_DEVID_P12 }}
+          P12_PASSWORD: ${{ secrets.MAC_DEVID_PASSWORD }}
+        run: |
+          if [[ -z "$P12" ]]; then
+            echo "::notice::No Developer ID certificate yet; skipping signing and the .dmg"
+            echo "ready=false" >> "$GITHUB_OUTPUT"; exit 0
+          fi
+          KC="$RUNNER_TEMP/signing.keychain-db"
+          KCPASS=$(openssl rand -hex 16)
+          security create-keychain -p "$KCPASS" "$KC"
+          security set-keychain-settings -lut 3600 "$KC"
+          security unlock-keychain -p "$KCPASS" "$KC"
+          printf '%s' "$P12" | base64 --decode > "$RUNNER_TEMP/devid.p12"
+          security import "$RUNNER_TEMP/devid.p12" -k "$KC" -P "$P12_PASSWORD" -T /usr/bin/codesign -T /usr/bin/security
+          rm -f "$RUNNER_TEMP/devid.p12"
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KCPASS" "$KC" >/dev/null
+          security list-keychains -d user -s "$KC" $(security list-keychains -d user | tr -d '"')
+          SERIAL=$(security find-certificate -c "Developer ID Application" -p "$KC" | openssl x509 -noout -serial | cut -d= -f2)
+          echo "serial=$SERIAL" >> "$GITHUB_OUTPUT"
+          echo "ready=true" >> "$GITHUB_OUTPUT"
+      - name: API key, bundle IDs and profiles
+        if: steps.devid.outputs.ready == 'true'
+        env:
+          ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+        run: |
+          mkdir -p "$RUNNER_TEMP/keys"
+          printf '%s' "$ASC_KEY_P8" > "$RUNNER_TEMP/keys/AuthKey_$ASC_KEY_ID.p8"
+          python3 -m venv "$RUNNER_TEMP/venv" && "$RUNNER_TEMP/venv/bin/pip" -q install 'pyjwt[crypto]'
+          export ASC_KEY_PATH="$RUNNER_TEMP/keys/AuthKey_$ASC_KEY_ID.p8"
+          PY="$RUNNER_TEMP/venv/bin/python"
+          $PY apps/asc.py ensure-bundle dev.mandip.magpie "Magpie"
+          $PY apps/asc.py ensure-bundle dev.mandip.magpie.files "Magpie Files"
+          for d in "$HOME/Library/MobileDevice/Provisioning Profiles" "$HOME/Library/Developer/Xcode/UserData/Provisioning Profiles"; do mkdir -p "$d"; done
+          $PY apps/asc.py devid-profile dev.mandip.magpie "$MAC_APP_PROFILE" "${{ steps.devid.outputs.serial }}" "$RUNNER_TEMP/app.provisionprofile"
+          $PY apps/asc.py devid-profile dev.mandip.magpie.files "$MAC_FILES_PROFILE" "${{ steps.devid.outputs.serial }}" "$RUNNER_TEMP/files.provisionprofile"
+          for f in app files; do
+            U=$(security cms -D -i "$RUNNER_TEMP/$f.provisionprofile" | plutil -extract UUID raw -)
+            cp "$RUNNER_TEMP/$f.provisionprofile" "$HOME/Library/MobileDevice/Provisioning Profiles/$U.provisionprofile"
+            cp "$RUNNER_TEMP/$f.provisionprofile" "$HOME/Library/Developer/Xcode/UserData/Provisioning Profiles/$U.provisionprofile"
+          done
+      - name: Archive (Developer ID)
+        if: steps.devid.outputs.ready == 'true'
+        run: |
+          set -o pipefail
+          cd apps/mac
+          xcodebuild -project MagpieMac.xcodeproj -scheme Magpie -configuration Release \
+            -destination 'generic/platform=macOS' -archivePath "$RUNNER_TEMP/Magpie.xcarchive" \
+            DEVELOPMENT_TEAM=$DEVELOPMENT_TEAM CURRENT_PROJECT_VERSION=$BUILD_NUMBER \
+            archive | xcbeautify
+          cat > "$RUNNER_TEMP/export.plist" <<EOF
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0"><dict>
+            <key>method</key><string>developer-id</string>
+            <key>teamID</key><string>$DEVELOPMENT_TEAM</string>
+            <key>signingStyle</key><string>manual</string>
+            <key>signingCertificate</key><string>Developer ID Application</string>
+            <key>provisioningProfiles</key><dict>
+              <key>dev.mandip.magpie</key><string>$MAC_APP_PROFILE</string>
+              <key>dev.mandip.magpie.files</key><string>$MAC_FILES_PROFILE</string>
+            </dict>
+          </dict></plist>
+          EOF
+          xcodebuild -exportArchive -archivePath "$RUNNER_TEMP/Magpie.xcarchive" \
+            -exportOptionsPlist "$RUNNER_TEMP/export.plist" -exportPath "$RUNNER_TEMP/export"
+      - name: Check the app
+        if: steps.devid.outputs.ready == 'true'
+        run: apps/mac/check-app.sh "$RUNNER_TEMP/export/Magpie.app"
+      - name: Disk image, notarized
+        if: steps.devid.outputs.ready == 'true'
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+        run: |
+          STAGE="$RUNNER_TEMP/dmg"
+          mkdir -p "$STAGE"
+          cp -R "$RUNNER_TEMP/export/Magpie.app" "$STAGE/"
+          ln -s /Applications "$STAGE/Applications"
+          hdiutil create -volname Magpie -srcfolder "$STAGE" -fs HFS+ -format UDZO -ov "$RUNNER_TEMP/Magpie.dmg"
+          codesign --sign "Developer ID Application" --timestamp "$RUNNER_TEMP/Magpie.dmg"
+          xcrun notarytool submit "$RUNNER_TEMP/Magpie.dmg" --key "$RUNNER_TEMP/keys/AuthKey_$ASC_KEY_ID.p8" \
+            --key-id "$ASC_KEY_ID" --issuer "$ASC_ISSUER_ID" --wait --timeout 30m --output-format json | tee "$RUNNER_TEMP/notary.json"
+          ID=$(plutil -extract id raw "$RUNNER_TEMP/notary.json")
+          if [[ $(plutil -extract status raw "$RUNNER_TEMP/notary.json") != Accepted ]]; then
+            xcrun notarytool log "$ID" --key "$RUNNER_TEMP/keys/AuthKey_$ASC_KEY_ID.p8" --key-id "$ASC_KEY_ID" --issuer "$ASC_ISSUER_ID"
+            echo "::error::notarization was not accepted"; exit 1
+          fi
+          xcrun stapler staple "$RUNNER_TEMP/Magpie.dmg"
+          xcrun stapler validate "$RUNNER_TEMP/Magpie.dmg"
+          spctl --assess --type open --context context:primary-signature -vv "$RUNNER_TEMP/Magpie.dmg"
+          # and the app exactly as the owner gets it, from the stapled disk image
+          MNT=$(mktemp -d)
+          hdiutil attach -nobrowse -readonly -mountpoint "$MNT" "$RUNNER_TEMP/Magpie.dmg" >/dev/null
+          rc=0; apps/mac/check-app.sh "$MNT/Magpie.app" || rc=1
+          spctl --assess --type execute -vv "$MNT/Magpie.app" || rc=1
+          hdiutil detach "$MNT" >/dev/null
+          exit $rc
+      - name: Sparkle appcast
+        if: steps.devid.outputs.ready == 'true'
+        env:
+          SPARKLE_ED_KEY: ${{ secrets.SPARKLE_ED_KEY }}
+        run: |
+          [[ -n "$SPARKLE_ED_KEY" ]] || { echo "::error::no SPARKLE_ED_KEY: updates would not verify"; exit 1; }
+          curl -sSL -o "$RUNNER_TEMP/sparkle.tar.xz" "https://github.com/sparkle-project/Sparkle/releases/download/$SPARKLE_VERSION/Sparkle-$SPARKLE_VERSION.tar.xz"
+          mkdir -p "$RUNNER_TEMP/sparkle" && tar -xf "$RUNNER_TEMP/sparkle.tar.xz" -C "$RUNNER_TEMP/sparkle"
+          cp "$RUNNER_TEMP/Magpie.dmg" "$RUNNER_TEMP/Magpie-$BUILD_NUMBER.dmg"
+          mkdir -p "$RUNNER_TEMP/keys" && printf '%s\n' "$SPARKLE_ED_KEY" > "$RUNNER_TEMP/keys/sparkle"
+          SIG=$("$RUNNER_TEMP/sparkle/bin/sign_update" --ed-key-file "$RUNNER_TEMP/keys/sparkle" "$RUNNER_TEMP/Magpie-$BUILD_NUMBER.dmg")
+          rm -f "$RUNNER_TEMP/keys/sparkle"
+          echo "$SIG"
+          VERSION=$(plutil -extract CFBundleShortVersionString raw "$RUNNER_TEMP/export/Magpie.app/Contents/Info.plist")
+          URL="https://github.com/${GITHUB_REPOSITORY}/releases/download/mac-latest/Magpie-$BUILD_NUMBER.dmg"
+          cat > "$RUNNER_TEMP/appcast.xml" <<EOF
+          <?xml version="1.0" encoding="utf-8"?>
+          <rss version="2.0" xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle">
+            <channel>
+              <title>Magpie</title>
+              <item>
+                <title>Magpie $VERSION ($BUILD_NUMBER)</title>
+                <pubDate>$(date -u '+%a, %d %b %Y %H:%M:%S +0000')</pubDate>
+                <sparkle:version>$BUILD_NUMBER</sparkle:version>
+                <sparkle:shortVersionString>$VERSION</sparkle:shortVersionString>
+                <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+                <enclosure url="$URL" $SIG type="application/octet-stream"/>
+              </item>
+            </channel>
+          </rss>
+          EOF
+          cat "$RUNNER_TEMP/appcast.xml"
+          # the signature must verify with the public key the app carries
+          PUB=$(plutil -extract SUPublicEDKey raw "$RUNNER_TEMP/export/Magpie.app/Contents/Info.plist")
+          python3 - "$PUB" "$RUNNER_TEMP/Magpie-$BUILD_NUMBER.dmg" "$SIG" <<'PY'
+          import base64, re, subprocess, sys
+          pub, path, sig = sys.argv[1:]
+          s = re.search(r'edSignature="([^"]+)"', sig).group(1)
+          from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
+          Ed25519PublicKey.from_public_bytes(base64.b64decode(pub)).verify(base64.b64decode(s), open(path, "rb").read())
+          print("appcast signature verifies with the app's SUPublicEDKey")
+          PY
+      - uses: actions/upload-artifact@v4
+        if: steps.devid.outputs.ready == 'true'
+        with:
+          name: magpie-mac-dmg
+          path: ${{ runner.temp }}/Magpie.dmg
+          retention-days: 30
+      - name: Publish for the Magpie page and Sparkle
+        if: steps.devid.outputs.ready == 'true' && (github.event_name == 'push' || inputs.publish)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release view mac-latest >/dev/null 2>&1 || \
+            gh release create mac-latest --title "Magpie for Mac" --prerelease \
+              --notes "The latest Magpie for Mac, signed with Developer ID and notarized."
+          gh release upload mac-latest "$RUNNER_TEMP/Magpie.dmg" "$RUNNER_TEMP/Magpie-$BUILD_NUMBER.dmg" "$RUNNER_TEMP/appcast.xml" --clobber
+          gh release edit mac-latest --notes "The latest Magpie for Mac (build $BUILD_NUMBER), signed with Developer ID and notarized. Built from ${GITHUB_SHA::7}."
+          # keep the three newest numbered images (older installs update from the newest)
+          gh release view mac-latest --json assets -q '.assets[].name' | grep -E '^Magpie-[0-9]+\.dmg$' | sort -t- -k2 -n -r | tail -n +4 | \
+            while read -r old; do gh release delete-asset mac-latest "$old" -y; done
+      - name: Clean up the key and keychain
+        if: always()
+        run: |
+          rm -rf "$RUNNER_TEMP/keys"
+          security delete-keychain "$RUNNER_TEMP/signing.keychain-db" 2>/dev/null || true
+
+  ios:
+    needs: engine
+    runs-on: macos-15
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - name: Xcode 26 (App Store Connect requires the iOS 26 SDK)
+        run: |
+          XC=$(ls -d /Applications/Xcode_26*.app | sort -V | tail -1)
+          echo "using $XC"
+          sudo xcode-select -s "$XC"
+          xcodebuild -version
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - name: Engine framework (gomobile)
+        run: apps/build-engine.sh ios
+      - name: Generate the Xcode project
+        run: |
+          brew install xcodegen
+          cd apps/ios && xcodegen generate
+      - name: Pick a Simulator
+        run: |
+          SIM=$(xcrun simctl list devices available -j | python3 -c "import json,sys; d=json.load(sys.stdin)['devices']; print(next(x['udid'] for k,v in d.items() if 'iOS' in k for x in v if x['name'].startswith('iPhone')))")
+          echo "simulator $SIM"
+          echo "SIM=$SIM" >> "$GITHUB_ENV"
+      - name: Screens (sample data)
+        run: |
+          set -o pipefail
+          cd apps/ios
+          xcodebuild test -project Magpie.xcodeproj -scheme Screens -destination "id=$SIM" \
+            -resultBundlePath "$RUNNER_TEMP/screens.xcresult" CODE_SIGNING_ALLOWED=NO | xcbeautify
+      - name: Export screenshots
+        if: always()
+        run: |
+          mkdir -p "$RUNNER_TEMP/screens"
+          [[ -d "$RUNNER_TEMP/screens.xcresult" ]] && xcrun xcresulttool export attachments --path "$RUNNER_TEMP/screens.xcresult" --output-path "$RUNNER_TEMP/screens" || true
+          ls -la "$RUNNER_TEMP/screens"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: screens-iphone
+          path: ${{ runner.temp }}/screens
+          if-no-files-found: ignore
+          retention-days: 14
+      - name: API key
+        env:
+          ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+        run: |
+          [[ -n "$ASC_KEY_P8" ]] || { echo "::notice::No App Store Connect key yet; stopping before signing"; echo "NO_KEY=1" >> "$GITHUB_ENV"; exit 0; }
+          mkdir -p "$RUNNER_TEMP/keys"
+          printf '%s' "$ASC_KEY_P8" > "$RUNNER_TEMP/keys/AuthKey_$ASC_KEY_ID.p8"
+          python3 -m venv "$RUNNER_TEMP/venv" && "$RUNNER_TEMP/venv/bin/pip" -q install 'pyjwt[crypto]'
+      - name: Bundle IDs and capabilities
+        if: env.NO_KEY != '1'
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+        run: |
+          export ASC_KEY_PATH="$RUNNER_TEMP/keys/AuthKey_$ASC_KEY_ID.p8"
+          PY="$RUNNER_TEMP/venv/bin/python"
+          $PY apps/asc.py ensure-bundle dev.mandip.magpie "Magpie"
+          $PY apps/asc.py ensure-bundle dev.mandip.magpie.files "Magpie Files"
+          for b in dev.mandip.magpie dev.mandip.magpie.files; do
+            $PY apps/asc.py capability $b APP_GROUPS
+            $PY apps/asc.py bundle $b
+          done
+      # CI's lasting development identity: without it, Xcode makes a new
+      # certificate on every throwaway runner until the team's limit is hit.
+      - name: Development identity
+        if: env.NO_KEY != '1'
+        env:
+          P12: ${{ secrets.IOS_DEV_P12 }}
+          P12_PASSWORD: ${{ secrets.IOS_DEV_PASSWORD }}
+        run: |
+          [[ -n "$P12" ]] || { echo "::warning::no IOS_DEV_P12; Xcode will make a new development certificate"; exit 0; }
+          KC="$RUNNER_TEMP/dev.keychain-db"
+          KCPASS=$(openssl rand -hex 16)
+          security create-keychain -p "$KCPASS" "$KC"
+          security set-keychain-settings -lut 3600 "$KC"
+          security unlock-keychain -p "$KCPASS" "$KC"
+          printf '%s' "$P12" | base64 --decode > "$RUNNER_TEMP/dev.p12"
+          security import "$RUNNER_TEMP/dev.p12" -k "$KC" -P "$P12_PASSWORD" -T /usr/bin/codesign -T /usr/bin/security
+          rm -f "$RUNNER_TEMP/dev.p12"
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KCPASS" "$KC" >/dev/null
+          security list-keychains -d user -s "$KC" $(security list-keychains -d user | tr -d '"')
+      - name: Archive
+        if: env.NO_KEY != '1'
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+        run: |
+          set -o pipefail
+          cd apps/ios
+          xcodebuild -project Magpie.xcodeproj -scheme Magpie -configuration Release \
+            -destination 'generic/platform=iOS' -archivePath "$RUNNER_TEMP/Magpie.xcarchive" \
+            -allowProvisioningUpdates \
+            -authenticationKeyPath "$RUNNER_TEMP/keys/AuthKey_$ASC_KEY_ID.p8" \
+            -authenticationKeyID "$ASC_KEY_ID" -authenticationKeyIssuerID "$ASC_ISSUER_ID" \
+            DEVELOPMENT_TEAM=$DEVELOPMENT_TEAM CURRENT_PROJECT_VERSION=$BUILD_NUMBER \
+            archive | xcbeautify
+      - name: Check the extension
+        if: env.NO_KEY != '1'
+        run: |
+          APP="$RUNNER_TEMP/Magpie.xcarchive/Products/Applications/Magpie.app"
+          EXT="$APP/PlugIns/MagpieFiles.appex"
+          test -d "$EXT" || { echo "::error::no File Provider extension in the app"; exit 1; }
+          plutil -extract NSExtension.NSExtensionPointIdentifier raw "$EXT/Info.plist" | grep -qx com.apple.fileprovider-nonui
+          codesign -d --entitlements - "$EXT" 2>/dev/null | tee /dev/stderr | grep -q group.dev.mandip.magpie
+          if otool -L "$EXT/MagpieFiles" | tail -n +2 | grep -vE '^\s+(/usr/lib/|/System/Library/|@rpath/libswift)'; then
+            echo "::error::the extension links a library that is not part of iOS"; exit 1
+          fi
+      - name: Upload to TestFlight
+        if: env.NO_KEY != '1' && (github.event_name == 'push' || inputs.publish)
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+        run: |
+          cat > "$RUNNER_TEMP/export.plist" <<EOF
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0"><dict>
+            <key>method</key><string>app-store-connect</string>
+            <key>destination</key><string>upload</string>
+            <key>teamID</key><string>$DEVELOPMENT_TEAM</string>
+            <key>signingStyle</key><string>automatic</string>
+            <key>manageAppVersionAndBuildNumber</key><false/>
+          </dict></plist>
+          EOF
+          xcodebuild -exportArchive -archivePath "$RUNNER_TEMP/Magpie.xcarchive" \
+            -exportOptionsPlist "$RUNNER_TEMP/export.plist" -exportPath "$RUNNER_TEMP/export" \
+            -allowProvisioningUpdates \
+            -authenticationKeyPath "$RUNNER_TEMP/keys/AuthKey_$ASC_KEY_ID.p8" \
+            -authenticationKeyID "$ASC_KEY_ID" -authenticationKeyIssuerID "$ASC_ISSUER_ID"
+      - name: Clean up the key
+        if: always()
+        run: rm -rf "$RUNNER_TEMP/keys"
