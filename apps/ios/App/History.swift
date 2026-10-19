@@ -14,14 +14,16 @@ struct HistoryBrowser: View {
     var body: some View {
         List {
             if dir.isEmpty && !deleted.isEmpty {
-                Section("Recently deleted") {
+                Section {
                     ForEach(deleted) { v in
                         Button { picked = v } label: {
-                            row(icon: "trash", tint: .secondary, title: v.name,
-                                subtitle: "Deleted \(friendlyTime(v.Kept).lowercasedFirst)", chevron: true)
+                            row(icon: "doc", tint: .secondary, title: v.name,
+                                subtitle: "In \(folderName(v.Path)), deleted \(friendlyTime(v.Kept).lowercasedFirst)", chevron: true)
                         }
                         .foregroundStyle(.primary)
                     }
+                } header: {
+                    header("Recently deleted")
                 }
             }
             Section {
@@ -32,6 +34,8 @@ struct HistoryBrowser: View {
                         row(icon: e.Dir ? "folder" : "doc", title: e.name)
                     }
                 }
+            } header: {
+                if dir.isEmpty { header("Files") }
             } footer: {
                 if dir.isEmpty {
                     Text("Frankfurt keeps every change and every deleted file for a year, fewer versions as they age.")
@@ -68,14 +72,16 @@ struct VersionsView: View {
                     .foregroundStyle(.secondary)
             }
             ForEach(historySections(versions), id: \.title) { section in
-                Section(section.title) {
+                Section {
                     ForEach(section.versions) { v in
                         Button { picked = v } label: {
-                            row(icon: "clock.arrow.circlepath", title: versionTime(v.Modified),
+                            row(icon: deviceIcon(model.deviceLabel(v.ModifiedBy)), title: versionTime(v.Modified),
                                 subtitle: model.deviceLabel(v.ModifiedBy), value: humanBytes(v.Size), chevron: true)
                         }
                         .foregroundStyle(.primary)
                     }
+                } header: {
+                    header(section.title)
                 }
             }
         }
@@ -121,7 +127,7 @@ struct VersionSheet: View {
                 .background(Color(uiColor: .secondarySystemBackground))
                 .clipShape(RoundedRectangle(cornerRadius: 12))
                 VStack(spacing: 2) {
-                    Text("\(friendlyTime(version.Modified)) on \(model.deviceLabel(version.ModifiedBy))")
+                    Text("\(friendlyTime(version.Modified)) on \(model.deviceLabel(version.ModifiedBy).lowercasedFirst)")
                         .font(.subheadline)
                     Text(humanBytes(version.Size)).font(.footnote).foregroundStyle(.secondary).monospacedDigit()
                 }
@@ -145,7 +151,7 @@ struct VersionSheet: View {
             .padding(16)
             .navigationTitle(version.name)
             .navigationBarTitleDisplayMode(.inline)
-            .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } } }
+            .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Done") { dismiss() } } }
         }
         .presentationDragIndicator(.visible)
         .task {
@@ -190,4 +196,17 @@ struct QuickLookPreview: UIViewControllerRepresentable {
         func numberOfPreviewItems(in controller: QLPreviewController) -> Int { 1 }
         func previewController(_ controller: QLPreviewController, previewItemAt index: Int) -> QLPreviewItem { url as NSURL }
     }
+}
+
+/// "In Notes": the folder a file was in.
+func folderName(_ path: String) -> String {
+    let dir = (path as NSString).deletingLastPathComponent
+    return dir.isEmpty ? "Magpie" : (dir as NSString).lastPathComponent
+}
+
+/// The glyph for whoever saved a version.
+func deviceIcon(_ label: String) -> String {
+    if label.localizedCaseInsensitiveContains("iphone") { return "iphone" }
+    if label.localizedCaseInsensitiveContains("ipad") { return "ipad" }
+    return "laptopcomputer"
 }

@@ -46,7 +46,7 @@ struct HistoryWindow: View {
                         Section(section.title) {
                             ForEach(section.versions) { v in
                                 VStack(alignment: .leading, spacing: 1) {
-                                    Text(versionTime(v.Modified)).monospacedDigit()
+                                    Text(versionTime(v.Modified)).monospacedDigit().foregroundStyle(.primary)
                                     Text(model.deviceLabel(v.ModifiedBy)).font(.caption).foregroundStyle(.secondary)
                                 }
                                 .padding(.vertical, 2)
@@ -179,7 +179,7 @@ struct HistoryTab: View {
                             .resizable().frame(width: 20, height: 20)
                         VStack(alignment: .leading, spacing: 1) {
                             Text(v.name).lineLimit(1).truncationMode(.middle)
-                            Text("Deleted \(friendlyTime(v.Kept).lowercasedFirst), from \(folderName(v.Path))")
+                            Text("In \(folderName(v.Path)), deleted \(friendlyTime(v.Kept).lowercasedFirst)")
                                 .font(.caption).foregroundStyle(.secondary).lineLimit(1)
                         }
                         Spacer()

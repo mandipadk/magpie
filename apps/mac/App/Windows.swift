@@ -110,8 +110,9 @@ private struct ConflictDialog: View {
                 version(title: theirs, subtitle: versionLine(conflict.CopyEntry, fallback: conflict.When))
             }
             HStack {
-                Button("Keep \(theirs)’s") { resolve(.copy) }
+                // In the order of the cards above.
                 Button("Keep \(mine)’s") { resolve(.original) }
+                Button("Keep \(theirs)’s") { resolve(.copy) }
                 Spacer()
                 Button("Keep Both") { resolve(.both) }
                     .keyboardShortcut(.defaultAction)
@@ -332,7 +333,7 @@ private struct UpdatesTab: View {
         Form {
             Toggle("Check for updates automatically", isOn: $auto)
                 .onChange(of: auto) { _, on in updater.automaticallyChecksForUpdates = on }
-            LabeledContent("Version", value: Bundle.main.version)
+            LabeledContent("Version", value: Bundle(for: AppModel.self).version)
             HStack {
                 Spacer()
                 Button("Check for Updates…") { updater.checkForUpdates() }

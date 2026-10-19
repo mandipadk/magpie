@@ -37,6 +37,10 @@ final class Screens: XCTestCase {
             app.buttons.matching(NSPredicate(format: "label CONTAINS 'Lisbon itinerary'")).firstMatch.tap()
             _ = app.staticTexts["Today"].waitForExistence(timeout: 5)
             shot(app, "versions-\(mode)")
+            app.buttons.matching(NSPredicate(format: "label CONTAINS 'MacBook Air'")).firstMatch.tap()
+            _ = app.buttons["Restore this version"].waitForExistence(timeout: 5)
+            shot(app, "version-sheet-\(mode)")
+            app.buttons["Done"].tap()
             app.navigationBars.buttons.element(boundBy: 0).tap()
             app.navigationBars.buttons.element(boundBy: 0).tap()
 

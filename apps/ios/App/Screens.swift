@@ -17,7 +17,7 @@ struct HomeView: View {
                         .listRowInsets(EdgeInsets())
                 }
                 if !model.conflicts.isEmpty {
-                    Section("Needs you") {
+                    Section {
                         ForEach(model.conflicts) { c in
                             Button { conflict = c } label: {
                                 row(icon: "exclamationmark.triangle", tint: .orange, title: c.fileName,
@@ -25,9 +25,11 @@ struct HomeView: View {
                             }
                             .foregroundStyle(.primary)
                         }
+                    } header: {
+                        header("Needs you")
                     }
                 }
-                Section("This iPhone") {
+                Section {
                     NavigationLink { KeptView() } label: {
                         row(icon: "arrow.down.circle", title: "Kept downloaded", value: model.kept.isEmpty ? "None" : "\(model.kept.count)")
                     }
@@ -40,6 +42,8 @@ struct HomeView: View {
                     Toggle(isOn: Binding(get: { model.status.Paused }, set: { model.setPaused($0) })) {
                         row(icon: "pause", title: "Pause syncing")
                     }
+                } header: {
+                    header("This iPhone")
                 }
                 Section {
                     Link(destination: URL(string: "shareddocuments://")!) {
@@ -86,11 +90,16 @@ struct HomeView: View {
     }
 }
 
+/// A section header in sentence case (List headers default to capitals).
+func header(_ title: String) -> some View {
+    Text(title).textCase(nil)
+}
+
 func row(icon: String, tint: Color = .jade, title: String, subtitle: String? = nil, value: String? = nil, chevron: Bool = false) -> some View {
     HStack(spacing: 12) {
         Image(systemName: icon).foregroundStyle(tint).frame(width: 24)
         VStack(alignment: .leading, spacing: 2) {
-            Text(title).lineLimit(1).truncationMode(.middle)
+            Text(title).lineLimit(1).truncationMode(.middle).monospacedDigit()
             if let subtitle { Text(subtitle).font(.footnote).foregroundStyle(.secondary).lineLimit(2) }
         }
         Spacer(minLength: 8)
@@ -332,17 +341,14 @@ struct CameraArea: View {
     var body: some View {
         ZStack {
             Color.black
-            if !hasCamera {
+            if !hasCamera && ProcessInfo.processInfo.environment["MAGPIE_SAMPLE"] == "1" {
+                // Screenshots run on the Simulator, which has no camera: show the frame.
+                aim
+            } else if !hasCamera {
                 note("This device has no camera. Paste the link instead.")
             } else if access == .authorized {
                 Scanner(found: found)
-                RoundedRectangle(cornerRadius: 20)
-                    .strokeBorder(.white.opacity(0.9), lineWidth: 3)
-                    .frame(width: 180, height: 180)
-                VStack {
-                    Spacer()
-                    Text("Point at the code").font(.footnote).foregroundStyle(.white.opacity(0.8)).padding(.bottom, 12)
-                }
+                aim
             } else if access == .notDetermined {
                 ProgressView().tint(.white)
             } else {
@@ -360,6 +366,18 @@ struct CameraArea: View {
             guard hasCamera, access == .notDetermined else { return }
             _ = await AVCaptureDevice.requestAccess(for: .video)
             access = AVCaptureDevice.authorizationStatus(for: .video)
+        }
+    }
+
+    private var aim: some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: 20)
+                .strokeBorder(.white.opacity(0.9), lineWidth: 3)
+                .frame(width: 180, height: 180)
+            VStack {
+                Spacer()
+                Text("Point at the code").font(.footnote).foregroundStyle(.white.opacity(0.8)).padding(.bottom, 12)
+            }
         }
     }
 

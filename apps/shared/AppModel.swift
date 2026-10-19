@@ -271,13 +271,13 @@ final class AppModel: ObservableObject {
         #else
         let (me, other) = ("iPhone", "MacBook Air")
         #endif
+        // Relative to now, so the sample never sits in the future.
         let now = Date()
-        let cal = Calendar.current
-        let today = { (h: Int, m: Int) in cal.date(bySettingHour: h, minute: m, second: 0, of: now) ?? now }
-        let ago = { (d: Int, h: Int, m: Int) in cal.date(byAdding: .day, value: -d, to: today(h, m)) ?? now }
+        let hour: TimeInterval = 3600, day = 86_400.0
         let rows: [(Date, String, Int64)] = [
-            (today(9, 5), me, 412_000), (ago(4, 20, 41), me, 398_000),
-            (ago(7, 7, 58), other, 371_000), (ago(22, 18, 13), me, 288_000),
+            (now - 25 * 60, other, 418_000), (now - 3 * hour, me, 412_000),
+            (now - 4 * day - 2 * hour, me, 398_000), (now - 7 * day - 5 * hour, other, 371_000),
+            (now - 22 * day, me, 288_000),
         ]
         return rows.enumerated().map { i, r in
             OldVersion(ID: "sample-\(i)", Path: path, Size: r.2, Modified: r.0, ModifiedBy: r.1, Kept: r.0.addingTimeInterval(3600))
@@ -314,9 +314,9 @@ func historySections(_ versions: [OldVersion], now: Date = .now) -> [HistorySect
     func title(_ d: Date) -> String {
         if cal.isDateInToday(d) { return "Today" }
         if cal.isDateInYesterday(d) { return "Yesterday" }
-        let days = cal.dateComponents([.day], from: cal.startOfDay(for: d), to: cal.startOfDay(for: now)).day ?? 0
-        if days < 7 { return "This week" }
-        if days < 14 { return "Last week" }
+        if cal.isDate(d, equalTo: now, toGranularity: .weekOfYear) { return "This week" }
+        if let lastWeek = cal.date(byAdding: .weekOfYear, value: -1, to: now),
+           cal.isDate(d, equalTo: lastWeek, toGranularity: .weekOfYear) { return "Last week" }
         return cal.isDate(d, equalTo: now, toGranularity: .year)
             ? d.formatted(.dateTime.month(.wide))
             : d.formatted(.dateTime.month(.wide).year())
@@ -342,9 +342,10 @@ func versionTime(_ d: Date) -> String {
 }
 
 extension String {
-    /// "Today at 14:02" reads as "today at 14:02" mid-sentence.
+    /// "Today at 14:02" reads as "today at 14:02" mid-sentence, and so do
+    /// "This iPhone" and "Another device".
     var lowercasedFirst: String {
-        hasPrefix("Today") || hasPrefix("Yesterday") ? prefix(1).lowercased() + dropFirst() : self
+        ["Today", "Yesterday", "This ", "Another "].contains { hasPrefix($0) } ? prefix(1).lowercased() + dropFirst() : self
     }
 }
 

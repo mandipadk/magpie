@@ -45,6 +45,9 @@ final class Screens: XCTestCase {
         let size = host.fittingSize
         window.setContentSize(size)
         host.frame = .init(origin: .zero, size: size)
+        // Key and in front, so default buttons and selections draw as they will.
+        window.orderFrontRegardless()
+        window.makeKey()
         RunLoop.main.run(until: Date().addingTimeInterval(0.6)) // let .task and images settle
         host.layoutSubtreeIfNeeded()
         guard let rep = host.bitmapImageRepForCachingDisplay(in: host.bounds) else { throw CocoaError(.fileWriteUnknown) }
