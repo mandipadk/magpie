@@ -50,6 +50,9 @@ struct JoinView: View {
         .padding(24)
         .frame(width: 460)
         .onAppear {
+            // macOS reopens windows that were open at quit (an update quits
+            // Magpie); a Mac that has joined doesn't need this one.
+            if model.joined { dismissWindow(id: "join"); return }
             if let s = UserDefaults.standard.string(forKey: "pendingJoinLink") {
                 link = s
                 UserDefaults.standard.removeObject(forKey: "pendingJoinLink")

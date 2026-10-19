@@ -88,6 +88,18 @@ final class AppModel: ObservableObject {
         }
     }
 
+    /// The extension's service, connecting first if need be: right after
+    /// launch, or when a link opens a window, the connection isn't up yet.
+    private func service() async -> MagpieService? {
+        for _ in 0..<15 {
+            if let proxy { return proxy }
+            await connect()
+            if let proxy { return proxy }
+            try? await Task.sleep(for: .seconds(1))
+        }
+        return nil
+    }
+
     private func connect() async {
         do {
             guard let manager = NSFileProviderManager(for: Self.domain) else { return }
@@ -120,6 +132,7 @@ final class AppModel: ObservableObject {
 
     func resolve(_ c: Conflict, keep: Keep) async {
         if sample { conflicts.removeAll { $0 == c }; return }
+        let proxy = await service()
         let err: String? = await withCheckedContinuation { cont in
             guard let proxy else { return cont.resume(returning: "Magpie isn't reachable right now.") }
             proxy.resolve(copyPath: c.Copy, keep: keep.rawValue) { cont.resume(returning: $0) }
@@ -130,6 +143,7 @@ final class AppModel: ObservableObject {
 
     func invite() async -> Result<String, JoinLink.Failure> {
         if sample { return .success("magpie1:join?sample") }
+        let proxy = await service()
         return await withCheckedContinuation { cont in
             guard let proxy else { return cont.resume(returning: .failure(.init("Magpie isn't reachable right now."))) }
             proxy.invite { link, err in
@@ -150,6 +164,7 @@ final class AppModel: ObservableObject {
     /// The server's old versions of a file, newest first.
     func versions(of path: String) async -> Result<[OldVersion], JoinLink.Failure> {
         if sample { return .success(Self.sampleVersions(path)) }
+        let proxy = await service()
         return await withCheckedContinuation { cont in
             guard let proxy else { return cont.resume(returning: .failure(.init("Magpie isn't reachable right now."))) }
             proxy.versions(path: path) { data, err in
@@ -165,6 +180,7 @@ final class AppModel: ObservableObject {
     /// Deleted files the server still keeps, most recently deleted first.
     func deletedFiles() async -> Result<[OldVersion], JoinLink.Failure> {
         if sample { return .success(Self.sampleDeleted) }
+        let proxy = await service()
         return await withCheckedContinuation { cont in
             guard let proxy else { return cont.resume(returning: .failure(.init("Magpie isn't reachable right now."))) }
             proxy.deleted { data, err in
@@ -180,6 +196,7 @@ final class AppModel: ObservableObject {
     /// A version written where this app can show it.
     func previewFile(_ v: OldVersion) async -> URL? {
         if sample { return nil }
+        let proxy = await service()
         return await withCheckedContinuation { cont in
             guard let proxy else { return cont.resume(returning: nil) }
             proxy.preview(id: v.ID) { path, _ in cont.resume(returning: path.map(URL.init(fileURLWithPath:))) }
@@ -190,6 +207,7 @@ final class AppModel: ObservableObject {
     /// an error message, or nil when it worked.
     func restore(_ v: OldVersion, asCopy: Bool) async -> String? {
         if sample { return nil }
+        let proxy = await service()
         let err: String? = await withCheckedContinuation { cont in
             guard let proxy else { return cont.resume(returning: "Magpie isn't reachable right now.") }
             proxy.restore(id: v.ID, asCopy: asCopy) { cont.resume(returning: $0) }
@@ -201,6 +219,7 @@ final class AppModel: ObservableObject {
     /// The entries of a folder, for browsing to a file's history.
     func entries(in dir: String) async -> [Entry] {
         if sample { return Self.sampleEntries(dir) }
+        let proxy = await service()
         return await withCheckedContinuation { cont in
             guard let proxy else { return cont.resume(returning: []) }
             proxy.list(dir: dir) { data in

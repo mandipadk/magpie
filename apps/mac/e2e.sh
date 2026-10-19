@@ -139,7 +139,7 @@ open "$CS"; sleep 3; shot "3-finder-first-open"
 pluginkit -m -v -i dev.mandip.magpie.files > "$OUT/pluginkit.txt" 2>&1 || true
 pluginkit -e use -i dev.mandip.magpie.files || true
 # and the folder itself: Finder's Enable (what the owner clicked once)
-press "" "Enable" Finder > "$OUT/finder-enable.txt" 2>&1 || {
+osascript -e 'tell application "System Events" to tell process "Finder" to click button "Enable" of splitter group 1 of window 1' > "$OUT/finder-enable.txt" 2>&1 || {
   # the bar's button at its place in a 1024x768 screen, if it isn't exposed
   osascript -e 'tell application "System Events" to click at {939, 151}' >> "$OUT/finder-enable.txt" 2>&1 || true
 }
@@ -182,12 +182,13 @@ step "4. Mac save -> phone, phone save -> Mac (on demand)"
 save "$CS/From the Mac.txt" "Saved on the Mac at $(date -u +%H:%M:%S)"
 open "magpie1:add-device"
 waitfor 30 "Add Device" ui 'get window "Add a Device"'
-sleep 5  # the invite is made when the window opens
+sleep 8  # the invite is made when the window opens
+pbcopy < /dev/null
 key "Add a Device" 8 command  # Command-C: Copy Link
 sleep 1
 INVITE=$(pbpaste)
-[[ "$INVITE" == magpie1:join\?* ]] || fail "Add Device didn't copy an invite"
 shot "4-add-device"
+[[ "$INVITE" == magpie1:join\?* && "$INVITE" != "$LINK" ]] || fail "Add Device didn't copy an invite (see 4-add-device)"
 "$OUT/bin/magpie-phone" --dir "$OUT/phone" join "$INVITE"
 "$OUT/bin/magpie-phone" --dir "$OUT/phone" get "From the Mac.txt" "$OUT/phone-got.txt"
 cmp -s "$CS/From the Mac.txt" "$OUT/phone-got.txt" || fail "the phone read something else"
