@@ -229,6 +229,13 @@ func TestJoinByInvite(t *testing.T) {
 // directory and the folder is shared with every device of the main folder.
 func TestHistoryForOlderHubs(t *testing.T) {
 	h, _ := startHub(t)
+	// a version kept before history existed
+	oldVersion := filepath.Join("A.syncthing-enc", "BC", "DEFGHIJ~20261019-053953")
+	oldPath := filepath.Join(h.home, "folder", ".stversions", oldVersion)
+	_ = os.MkdirAll(filepath.Dir(oldPath), 0o700)
+	if err := os.WriteFile(oldPath, []byte("ciphertext"), 0o600); err != nil {
+		t.Fatal(err)
+	}
 	var hist map[string]any
 	if err := h.api("DELETE", "/rest/config/folders/magpie-history", nil, nil); err != nil {
 		t.Fatal(err)
@@ -251,5 +258,15 @@ func TestHistoryForOlderHubs(t *testing.T) {
 		_ = h.api("GET", "/rest/config/folders/magpie", nil, &folder)
 		return hist["type"] == "sendonly" && hist["path"] == h.historyDir() &&
 			folder["versioning"].(map[string]any)["fsPath"] == h.historyDir()
+	})
+	if bs, err := os.ReadFile(filepath.Join(h.historyDir(), oldVersion)); err != nil || string(bs) != "ciphertext" {
+		t.Fatalf("the old version didn't move into history: %v", err)
+	}
+	if _, err := os.Stat(oldPath); err == nil {
+		t.Fatal("the old version is still in .stversions")
+	}
+	waitFor(t, "the hub to count it", func() bool {
+		s, err := h.status()
+		return err == nil && s.HistoryN == 1 && s.HistoryAt.Equal(time.Date(2026, 10, 19, 5, 39, 53, 0, time.UTC))
 	})
 }

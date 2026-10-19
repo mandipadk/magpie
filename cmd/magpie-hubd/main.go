@@ -403,6 +403,9 @@ func (h *hub) ensureHistory() error {
 	if err := h.publishKey(); err != nil {
 		return err
 	}
+	if err := h.moveOldVersions(); err != nil {
+		return err
+	}
 	var folder map[string]any
 	if err := h.api("GET", "/rest/config/folders/"+folderID, nil, &folder); err != nil {
 		return err
@@ -461,6 +464,44 @@ func (h *hub) ensureHistory() error {
 	}
 	hist["devices"] = list
 	return h.api("PUT", "/rest/config/folders/"+histID, hist, nil)
+}
+
+// moveOldVersions moves versions kept before history existed (in the
+// folder's .stversions) into the history directory, where devices see them.
+// Both are on the same disk, so each is a rename.
+func (h *hub) moveOldVersions() error {
+	old := filepath.Join(h.home, "folder", ".stversions")
+	if _, err := os.Stat(old); err != nil {
+		return nil
+	}
+	var dirs []string
+	err := filepath.Walk(old, func(p string, fi os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		rel, _ := filepath.Rel(old, p)
+		if fi.IsDir() {
+			dirs = append(dirs, p)
+			return nil
+		}
+		dst := filepath.Join(h.historyDir(), rel)
+		if _, err := os.Lstat(dst); err == nil {
+			return nil // already there; leave both
+		}
+		if err := os.MkdirAll(filepath.Dir(dst), 0o700); err != nil {
+			return err
+		}
+		if err := os.Rename(p, dst); err != nil {
+			return err
+		}
+		log.Printf("magpie-hubd: moved an old version into history: %s", rel)
+		return nil
+	})
+	// Empty directories go, deepest first; anything left stays.
+	for i := len(dirs) - 1; i > 0; i-- {
+		_ = os.Remove(dirs[i])
+	}
+	return err
 }
 
 func lenAny(v any) int {
