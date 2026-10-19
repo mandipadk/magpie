@@ -6,7 +6,7 @@ import Foundation
 import Security
 
 enum Magpie {
-    /// Shared between the app and the extension (Mac only).
+    /// Shared between the app and the extension.
     static let appGroup: String = {
         #if os(macOS)
         return "UK74VYMUP7.dev.mandip.magpie"
@@ -19,15 +19,8 @@ enum Magpie {
     static let serviceName = NSFileProviderServiceName("dev.mandip.magpie.service")
 
     static var containerURL: URL {
-        #if os(macOS)
-        return FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: appGroup)
+        FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: appGroup)
             ?? FileManager.default.temporaryDirectory
-        #else
-        // On iPhone only the extension runs the engine (the app asks it over
-        // its service), so its own container is enough and no App Group is
-        // needed; App Store profiles can't carry an unregistered one.
-        return FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-        #endif
     }
     /// The engine's state: device certificate, index, outbox. Only the
     /// File Provider extension opens it.
