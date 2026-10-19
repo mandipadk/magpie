@@ -7,8 +7,7 @@ final class Screens: XCTestCase {
 
     private func launch(_ env: [String: String] = [:], dark: Bool) -> XCUIApplication {
         let app = XCUIApplication()
-        app.launchEnvironment = ["MAGPIE_SAMPLE": "1"].merging(env) { $1 }
-        XCUIDevice.shared.appearance = dark ? .dark : .light
+        app.launchEnvironment = ["MAGPIE_SAMPLE": "1", "MAGPIE_SAMPLE_DARK": dark ? "1" : "0"].merging(env) { $1 }
         app.launch()
         return app
     }

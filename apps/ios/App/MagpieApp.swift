@@ -19,6 +19,9 @@ struct MagpieApp: App {
             }
             .environmentObject(model)
             .tint(Color.jade)
+            // Screenshots of sample data (UITests/Screens.swift) ask for dark here;
+            // the simulator ignores appearance set from the test runner.
+            .preferredColorScheme(ProcessInfo.processInfo.environment["MAGPIE_SAMPLE_DARK"] == "1" ? .dark : nil)
             .onOpenURL { url in
                 guard url.scheme == "magpie1", !model.joined else { return }
                 Task { await model.join(link: url.absoluteString, deviceName: AppModel.deviceName) }
