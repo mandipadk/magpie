@@ -1,10 +1,8 @@
-import Sparkle
 import SwiftUI
 
 /// The panel under the menu bar icon: status, pause, what needs the owner,
 /// the devices, and the usual menu items.
 struct MenuPanel: View {
-    let updater: SPUUpdater
     @EnvironmentObject private var model: AppModel
     @Environment(\.openWindow) private var openWindow
     @Environment(\.openSettings) private var openSettings
@@ -14,11 +12,14 @@ struct MenuPanel: View {
             if model.joined {
                 header
                 Divider().padding(.horizontal, 14).padding(.vertical, 5)
-                Toggle(isOn: Binding(get: { model.status.Paused }, set: { model.setPaused($0) })) {
+                HStack {
                     Label("Pause syncing", systemImage: "pause")
+                    Spacer()
+                    Toggle("Pause syncing", isOn: Binding(get: { model.status.Paused }, set: { model.setPaused($0) }))
+                        .labelsHidden()
+                        .toggleStyle(.switch)
+                        .controlSize(.mini)
                 }
-                .toggleStyle(.switch)
-                .controlSize(.small)
                 .padding(.horizontal, 14)
                 .padding(.vertical, 4)
                 if !model.conflicts.isEmpty {
@@ -26,7 +27,7 @@ struct MenuPanel: View {
                     section("Needs you")
                     ForEach(model.conflicts.prefix(3)) { c in
                         row(icon: "exclamationmark.triangle", tint: .orange, title: c.fileName,
-                            subtitle: "Changed on \(c.CopyBy.isEmpty ? "another device" : c.CopyBy) and here") {
+                            subtitle: "Changed on \(model.deviceLabel(c.CopyBy)) and here") {
                             Button("Resolve…") { open("conflicts") }
                                 .controlSize(.small)
                         }
@@ -37,7 +38,7 @@ struct MenuPanel: View {
                     section("Devices")
                     ForEach(otherDevices) { d in
                         row(icon: d.Hub ? "server.rack" : (d.Name.localizedCaseInsensitiveContains("iphone") ? "iphone" : "laptopcomputer"),
-                            title: d.Name, subtitle: d.Hub ? "Server, encrypted" : "Shares this Magpie") {
+                            title: d.Name, subtitle: d.Hub ? "Server, encrypted" : "Syncs through Frankfurt") {
                             if d.Hub {
                                 Text(model.status.Connected ? "Connected" : "Not connected")
                                     .font(.caption).foregroundStyle(.secondary)
@@ -60,7 +61,6 @@ struct MenuPanel: View {
                 item("Open Magpie in Finder") { model.revealInFinder() }
             }
             item("Settings…", key: ",") { openSettings(); NSApp.activate(ignoringOtherApps: true) }
-            item("Check for Updates…") { updater.checkForUpdates() }
             item("Quit Magpie", key: "q") { NSApp.terminate(nil) }
         }
         .padding(.vertical, 6)
@@ -75,7 +75,7 @@ struct MenuPanel: View {
     private var header: some View {
         HStack(spacing: 10) {
             ZStack {
-                Circle().fill(model.status.Paused ? Color.secondary.opacity(0.4) : Color.accentColor)
+                Circle().fill(model.status.Paused ? Color.secondary.opacity(0.4) : Color.jade)
                 Image(systemName: headerSymbol)
                     .font(.system(size: 14, weight: .semibold))
                     .foregroundStyle(.white)

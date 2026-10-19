@@ -15,12 +15,15 @@ final class Screens: XCTestCase {
             ?? FileManager.default.temporaryDirectory.appendingPathComponent("magpie-screens")
         try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
         let model = AppModel(sample: true)
+        let window = Color(nsColor: .windowBackgroundColor)
         let screens: [(String, AnyView)] = [
-            ("menu-panel", AnyView(MenuPanel(updater: updater).environmentObject(model).background(.regularMaterial))),
-            ("join", AnyView(JoinView().environmentObject(AppModel(sample: false)))),
-            ("conflict", AnyView(ConflictsView().environmentObject(model))),
+            ("menu-panel", AnyView(MenuPanel().environmentObject(model).background(.regularMaterial))),
+            ("join", AnyView(JoinView().environmentObject(AppModel(sample: false)).background(window))),
+            ("conflict", AnyView(ConflictsView().environmentObject(model).background(window))),
             ("settings", AnyView(SettingsView(updater: updater).environmentObject(model))),
-            ("add-device", AnyView(AddDeviceSheet().environmentObject(model))),
+            ("settings-devices", AnyView(SettingsView(updater: updater, tab: .devices).environmentObject(model))),
+            ("settings-updates", AnyView(SettingsView(updater: updater, tab: .updates).environmentObject(model))),
+            ("add-device", AnyView(AddDeviceSheet().environmentObject(model).background(window))),
         ]
         for (name, view) in screens {
             for dark in [false, true] {

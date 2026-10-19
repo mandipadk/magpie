@@ -18,7 +18,7 @@ struct JoinView: View {
                 .font(.system(size: 20, weight: .medium))
                 .foregroundStyle(.white)
                 .frame(width: 44, height: 44)
-                .background(Circle().fill(Color.accentColor))
+                .background(Circle().fill(Color.jade))
             VStack(alignment: .leading, spacing: 4) {
                 Text("Join your Magpie").font(.title3).fontWeight(.semibold)
                 Text("Paste the link from another of your devices, or the setup link from your server.")
@@ -81,7 +81,7 @@ struct ConflictsView: View {
                     .transition(.opacity)
             } else {
                 VStack(spacing: 8) {
-                    Image(systemName: "checkmark.circle").font(.largeTitle).foregroundStyle(Color.accentColor)
+                    Image(systemName: "checkmark.circle").font(.largeTitle).foregroundStyle(Color.jade)
                     Text("No conflicts").font(.headline)
                     Text("Every file has one version.").foregroundStyle(.secondary)
                 }
@@ -106,13 +106,12 @@ private struct ConflictDialog: View {
                     .foregroundStyle(.secondary)
             }
             HStack(spacing: 16) {
-                version(title: "Kept as the file", subtitle: "The version now in Magpie")
-                version(title: conflict.CopyBy.isEmpty ? "The other edit" : conflict.CopyBy,
-                        subtitle: conflict.When.formatted(date: .abbreviated, time: .shortened))
+                version(title: mine, subtitle: versionLine(conflict.OriginalEntry, fallback: conflict.When))
+                version(title: theirs, subtitle: versionLine(conflict.CopyEntry, fallback: conflict.When))
             }
             HStack {
-                Button("Keep \(conflict.CopyBy.isEmpty ? "the other edit" : conflict.CopyBy + "’s")") { resolve(.copy) }
-                Button("Keep the File") { resolve(.original) }
+                Button("Keep \(theirs)’s") { resolve(.copy) }
+                Button("Keep \(mine)’s") { resolve(.original) }
                 Spacer()
                 Button("Keep Both") { resolve(.both) }
                     .keyboardShortcut(.defaultAction)
@@ -125,6 +124,10 @@ private struct ConflictDialog: View {
         .padding(24)
         .frame(width: 480)
     }
+
+    /// The version that kept the file's name, and the one that became the copy.
+    private var mine: String { model.deviceLabel(conflict.OriginalEntry?.ModifiedBy ?? "") }
+    private var theirs: String { model.deviceLabel(conflict.CopyBy) }
 
     private func version(title: String, subtitle: String) -> some View {
         VStack(spacing: 8) {
@@ -151,17 +154,28 @@ private struct ConflictDialog: View {
 // MARK: Settings
 
 struct SettingsView: View {
+    enum Tab { case general, devices, updates }
+
     let updater: SPUUpdater
     @EnvironmentObject private var model: AppModel
+    @State private var tab: Tab
+
+    init(updater: SPUUpdater, tab: Tab = .general) {
+        self.updater = updater
+        _tab = State(initialValue: tab)
+    }
 
     var body: some View {
-        TabView {
+        TabView(selection: $tab) {
             GeneralTab()
                 .tabItem { Label("General", systemImage: "gearshape") }
+                .tag(Tab.general)
             DevicesTab()
                 .tabItem { Label("Devices", systemImage: "laptopcomputer") }
+                .tag(Tab.devices)
             UpdatesTab(updater: updater)
                 .tabItem { Label("Updates", systemImage: "arrow.down.circle") }
+                .tag(Tab.updates)
         }
         .frame(width: 520)
         .environmentObject(model)
@@ -211,7 +225,7 @@ private struct DevicesTab: View {
                             .frame(width: 20)
                         VStack(alignment: .leading, spacing: 1) {
                             Text(d.Name)
-                            Text(d.ThisOne ? "This Mac" : d.Hub ? "Server. Holds everything encrypted and can't read it." : "Shares this Magpie")
+                            Text(d.ThisOne ? "This Mac" : d.Hub ? "Server. Holds everything encrypted and can't read it." : "Syncs through Frankfurt")
                                 .font(.caption).foregroundStyle(.secondary)
                         }
                     }
@@ -238,6 +252,7 @@ struct AddDeviceSheet: View {
     @State private var problem: String?
     @State private var made = Date()
     @State private var now = Date()
+    @State private var copied = false
     private let tick = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
 
     var body: some View {
@@ -267,8 +282,10 @@ struct AddDeviceSheet: View {
                     if let link {
                         NSPasteboard.general.clearContents()
                         NSPasteboard.general.setString(link, forType: .string)
+                        copied = true
+                        Task { try? await Task.sleep(for: .seconds(2)); copied = false }
                     }
-                } label: { Label("Copy Link", systemImage: "doc.on.doc") }
+                } label: { Label(copied ? "Copied" : "Copy Link", systemImage: copied ? "checkmark" : "doc.on.doc") }
                 .disabled(link == nil)
                 Spacer()
                 Button("Done") { dismiss() }.keyboardShortcut(.defaultAction)
@@ -287,7 +304,7 @@ struct AddDeviceSheet: View {
 
     private func make() async {
         switch await model.invite() {
-        case .success(let l): link = l; made = Date()
+        case .success(let l): link = l; made = Date(); now = made
         case .failure(let f): problem = f.message
         }
     }

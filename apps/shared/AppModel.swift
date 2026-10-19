@@ -142,6 +142,19 @@ final class AppModel: ObservableObject {
 
     // MARK: Words the screens use
 
+    /// How the screens name a device: this one is "This Mac" or "This iPhone".
+    func deviceLabel(_ name: String) -> String {
+        if name.isEmpty { return "Another device" }
+        if name == devices.first(where: { $0.ThisOne })?.Name {
+            #if os(macOS)
+            return "This Mac"
+            #else
+            return "This iPhone"
+            #endif
+        }
+        return name
+    }
+
     var headline: String {
         if !status.Connected && !sample {
             if status.Paused { return "Paused" }
@@ -168,14 +181,44 @@ final class AppModel: ObservableObject {
         reachable = true
         status = EngineStatus(Connected: true, Accepted: true, Ready: true, Paused: false, Files: 1284, Bytes: 6_650_000_000, DeviceID: "SAMPLE")
         let now = Date()
-        conflicts = [Conflict(Copy: "Budget.sync-conflict-20261019-140200-ABCDEFG.numbers", Original: "Budget.numbers", CopyBy: "MacBook Air", When: now.addingTimeInterval(-240))]
+        // Seen from this device: the other one made the conflicting edit.
+        #if os(macOS)
+        let (me, other) = ("MacBook Air", "iPhone")
+        #else
+        let (me, other) = ("iPhone", "MacBook Air")
+        #endif
+        let copy = "Budget.sync-conflict-20261019-140200-ABCDEFG.numbers"
+        conflicts = [Conflict(
+            Copy: copy, Original: "Budget.numbers", CopyBy: other, When: now.addingTimeInterval(-240),
+            CopyEntry: Entry(Path: copy, Dir: false, Size: 186_000, Modified: now.addingTimeInterval(-240), Version: "", OnHub: true, ModifiedBy: other),
+            OriginalEntry: Entry(Path: "Budget.numbers", Dir: false, Size: 182_000, Modified: now.addingTimeInterval(-180), Version: "", OnHub: true, ModifiedBy: me))]
         devices = [
-            DeviceInfo(ID: "A", Name: "iPhone", ThisOne: true, Hub: false),
-            DeviceInfo(ID: "B", Name: "MacBook Air", ThisOne: false, Hub: false),
+            DeviceInfo(ID: "A", Name: me, ThisOne: true, Hub: false),
+            DeviceInfo(ID: "B", Name: other, ThisOne: false, Hub: false),
             DeviceInfo(ID: "C", Name: "Frankfurt", ThisOne: false, Hub: true),
         ]
         kept = ["Taxes 2026", "Lisbon itinerary.pages"]
     }
+}
+
+extension Color {
+    /// Magpie's one accent. Spelled out rather than taken from the asset
+    /// catalog, because on the Mac `accentColor` follows the system setting.
+    static let jade: Color = {
+        #if os(macOS)
+        return Color(nsColor: NSColor(name: nil) { appearance in
+            appearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua
+                ? NSColor(srgbRed: 0x2f / 255, green: 0x9c / 255, blue: 0x72 / 255, alpha: 1)
+                : NSColor(srgbRed: 0x1d / 255, green: 0x7a / 255, blue: 0x58 / 255, alpha: 1)
+        })
+        #else
+        return Color(uiColor: UIColor { traits in
+            traits.userInterfaceStyle == .dark
+                ? UIColor(red: 0x3c / 255, green: 0xc2 / 255, blue: 0x8f / 255, alpha: 1)
+                : UIColor(red: 0x1d / 255, green: 0x7a / 255, blue: 0x58 / 255, alpha: 1)
+        })
+        #endif
+    }()
 }
 
 /// Reads magpie1: links (made by the server or another device; see

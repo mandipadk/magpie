@@ -21,7 +21,7 @@ struct HomeView: View {
                         ForEach(model.conflicts) { c in
                             Button { conflict = c } label: {
                                 row(icon: "exclamationmark.triangle", tint: .orange, title: c.fileName,
-                                    subtitle: "Changed here and on \(c.CopyBy.isEmpty ? "another device" : c.CopyBy)", chevron: true)
+                                    subtitle: "Changed here and on \(model.deviceLabel(c.CopyBy))", chevron: true)
                             }
                             .foregroundStyle(.primary)
                         }
@@ -32,7 +32,7 @@ struct HomeView: View {
                         row(icon: "arrow.down.circle", title: "Kept downloaded", value: model.kept.isEmpty ? "None" : "\(model.kept.count)")
                     }
                     NavigationLink { DevicesView() } label: {
-                        row(icon: "laptopcomputer.and.iphone", title: "Devices", value: "\(model.devices.count)")
+                        row(icon: "laptopcomputer", title: "Devices", value: "\(model.devices.count)")
                     }
                     Toggle(isOn: Binding(get: { model.status.Paused }, set: { model.setPaused($0) })) {
                         row(icon: "pause", title: "Pause syncing")
@@ -47,11 +47,13 @@ struct HomeView: View {
                     Text("Magpie is under Locations in the Files app. Files are encrypted on this iPhone before they leave it; your server stores them but can't read them.")
                 }
             }
+            .textCase(nil)
             .navigationTitle("")
             .toolbar(.hidden, for: .navigationBar)
             .sheet(item: $conflict) { c in
                 ConflictSheet(conflict: c)
                     .presentationDetents([.medium])
+                    .presentationDragIndicator(.visible)
             }
             .refreshable { model.refresh() }
         }
@@ -61,9 +63,9 @@ struct HomeView: View {
         VStack(spacing: 6) {
             Image(systemName: heroSymbol)
                 .font(.system(size: 28, weight: .medium))
-                .foregroundStyle(Color.accentColor)
+                .foregroundStyle(Color.jade)
                 .frame(width: 64, height: 64)
-                .background(Circle().fill(Color.accentColor.opacity(0.16)))
+                .background(Circle().fill(Color.jade.opacity(0.16)))
                 .contentTransition(.symbolEffect(.replace))
             Text(model.headline).font(.title3.weight(.semibold))
             Text(model.detail).font(.subheadline).foregroundStyle(.secondary).monospacedDigit()
@@ -81,7 +83,7 @@ struct HomeView: View {
     }
 }
 
-func row(icon: String, tint: Color = .accentColor, title: String, subtitle: String? = nil, value: String? = nil, chevron: Bool = false) -> some View {
+func row(icon: String, tint: Color = .jade, title: String, subtitle: String? = nil, value: String? = nil, chevron: Bool = false) -> some View {
     HStack(spacing: 12) {
         Image(systemName: icon).foregroundStyle(tint).frame(width: 24)
         VStack(alignment: .leading, spacing: 2) {
@@ -112,9 +114,9 @@ struct ConflictSheet: View {
             }
             .multilineTextAlignment(.center)
             .padding(.top, 20)
-            option(.both, icon: "doc.on.doc", title: "Keep both", subtitle: "\(other)'s copy is saved beside it")
-            option(.original, icon: "iphone", title: "Keep the file as it is", subtitle: "Removes \(other)'s copy")
-            option(.copy, icon: "laptopcomputer", title: "Keep \(other)'s", subtitle: conflict.When.formatted(date: .abbreviated, time: .shortened))
+            option(.both, icon: "doc.on.doc", title: "Keep both", subtitle: "\(theirs)'s copy is saved beside it")
+            option(.original, icon: icon(for: mine), title: "Keep \(sentence(mine))'s", subtitle: versionLine(conflict.OriginalEntry, fallback: conflict.When))
+            option(.copy, icon: icon(for: theirs), title: "Keep \(sentence(theirs))'s", subtitle: versionLine(conflict.CopyEntry, fallback: conflict.When))
             Button {
                 working = true
                 Task {
@@ -134,20 +136,33 @@ struct ConflictSheet: View {
         .padding(.bottom, 16)
     }
 
-    private var other: String { conflict.CopyBy.isEmpty ? "the other device" : conflict.CopyBy }
+    /// The version that kept the file's name, and the one that became the copy.
+    private var mine: String { model.deviceLabel(conflict.OriginalEntry?.ModifiedBy ?? "") }
+    private var theirs: String { model.deviceLabel(conflict.CopyBy) }
+
+    /// "This iPhone" reads as "this iPhone" mid-sentence.
+    private func sentence(_ label: String) -> String {
+        label.hasPrefix("This ") ? "this " + label.dropFirst(5) : label
+    }
+
+    private func icon(for label: String) -> String {
+        if label == "This iPhone" || label.localizedCaseInsensitiveContains("iphone") { return "iphone" }
+        if label.localizedCaseInsensitiveContains("ipad") { return "ipad" }
+        return "laptopcomputer"
+    }
 
     private var buttonTitle: String {
         switch choice {
         case .both: return "Keep both"
-        case .original: return "Keep the file"
-        case .copy: return "Keep \(other)'s"
+        case .original: return "Keep \(sentence(mine))'s"
+        case .copy: return "Keep \(sentence(theirs))'s"
         }
     }
 
     private func option(_ k: Keep, icon: String, title: String, subtitle: String) -> some View {
         Button { choice = k } label: {
             HStack(spacing: 12) {
-                Image(systemName: icon).foregroundStyle(Color.accentColor).frame(width: 24)
+                Image(systemName: icon).foregroundStyle(Color.jade).frame(width: 24)
                 VStack(alignment: .leading, spacing: 2) {
                     Text(title).foregroundStyle(.primary)
                     Text(subtitle).font(.footnote).foregroundStyle(.secondary)
@@ -156,7 +171,7 @@ struct ConflictSheet: View {
             }
             .padding(12)
             .frame(minHeight: 56)
-            .background(RoundedRectangle(cornerRadius: 12).strokeBorder(choice == k ? Color.accentColor : Color(uiColor: .separator), lineWidth: choice == k ? 2 : 1))
+            .background(RoundedRectangle(cornerRadius: 12).strokeBorder(choice == k ? Color.jade : Color(uiColor: .separator), lineWidth: choice == k ? 2 : 1))
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
@@ -194,7 +209,7 @@ struct DevicesView: View {
             Section {
                 ForEach(model.devices) { d in
                     row(icon: d.Hub ? "server.rack" : (d.ThisOne ? "iphone" : "laptopcomputer"), title: d.Name,
-                        subtitle: d.ThisOne ? "This iPhone" : d.Hub ? "Server. Holds everything encrypted and can't read it." : "Shares this Magpie")
+                        subtitle: d.ThisOne ? "This iPhone" : d.Hub ? "Server. Holds everything encrypted and can't read it." : "Syncs through Frankfurt")
                 }
             } footer: {
                 Text("Files are encrypted on each device with a key the server never sees.")
@@ -267,14 +282,14 @@ struct JoinView: View {
             Spacer(minLength: 24)
             Image(systemName: "icloud")
                 .font(.system(size: 28, weight: .medium))
-                .foregroundStyle(Color.accentColor)
+                .foregroundStyle(Color.jade)
                 .frame(width: 64, height: 64)
-                .background(Circle().fill(Color.accentColor.opacity(0.16)))
+                .background(Circle().fill(Color.jade.opacity(0.16)))
             Text("Join your Magpie").font(.title3.weight(.semibold))
-            Text("On your Mac, open Magpie's Settings, then Devices, then Add Device, and scan the code.")
+            Text("Scan the code on your Mac, under Settings, Devices, Add Device.")
                 .font(.subheadline).foregroundStyle(.secondary).multilineTextAlignment(.center)
                 .frame(maxWidth: 280)
-            Scanner { code in
+            CameraArea { code in
                 guard !working, code.hasPrefix("magpie1:") else { return }
                 join(code)
             }
@@ -285,7 +300,8 @@ struct JoinView: View {
                 Label(problem, systemImage: "exclamationmark.triangle").foregroundStyle(.orange).font(.footnote)
             }
             Button("Paste a link instead") {
-                if let s = UIPasteboard.general.string { join(s) }
+                if let s = UIPasteboard.general.string, !s.isEmpty { join(s) }
+                else { model.problem = "Copy the link on your other device first, then tap Paste." }
             }
             .frame(minHeight: 44)
             .disabled(working)
@@ -300,6 +316,52 @@ struct JoinView: View {
             await model.join(link: link, deviceName: AppModel.deviceName)
             working = false
         }
+    }
+}
+
+/// Where the camera goes: the live view with a frame to aim with, or a plain
+/// note when there's no camera or Magpie may not use it.
+struct CameraArea: View {
+    let found: (String) -> Void
+    @State private var access = AVCaptureDevice.authorizationStatus(for: .video)
+    private let hasCamera = AVCaptureDevice.default(for: .video) != nil
+
+    var body: some View {
+        ZStack {
+            Color.black
+            if !hasCamera {
+                note("This device has no camera. Paste the link instead.")
+            } else if access == .authorized {
+                Scanner(found: found)
+                RoundedRectangle(cornerRadius: 20)
+                    .strokeBorder(.white.opacity(0.9), lineWidth: 3)
+                    .frame(width: 180, height: 180)
+                VStack {
+                    Spacer()
+                    Text("Point at the code").font(.footnote).foregroundStyle(.white.opacity(0.8)).padding(.bottom, 12)
+                }
+            } else if access == .notDetermined {
+                ProgressView().tint(.white)
+            } else {
+                VStack(spacing: 12) {
+                    note("Magpie needs the camera to scan the code.")
+                    Button("Open Settings") {
+                        if let url = URL(string: UIApplication.openSettingsURLString) { UIApplication.shared.open(url) }
+                    }
+                    .frame(minHeight: 44)
+                    .tint(.white)
+                }
+            }
+        }
+        .task {
+            guard hasCamera, access == .notDetermined else { return }
+            _ = await AVCaptureDevice.requestAccess(for: .video)
+            access = AVCaptureDevice.authorizationStatus(for: .video)
+        }
+    }
+
+    private func note(_ text: String) -> some View {
+        Text(text).font(.subheadline).foregroundStyle(.white.opacity(0.8)).multilineTextAlignment(.center).padding(24)
     }
 }
 

@@ -18,7 +18,7 @@ struct MagpieApp: App {
                 }
             }
             .environmentObject(model)
-            .tint(Color.accentColor)
+            .tint(Color.jade)
             .onOpenURL { url in
                 guard url.scheme == "magpie1", !model.joined else { return }
                 Task { await model.join(link: url.absoluteString, deviceName: AppModel.deviceName) }

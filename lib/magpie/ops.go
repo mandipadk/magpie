@@ -468,6 +468,8 @@ type Conflict struct {
 	// CopyBy is the device whose edit lost, when known.
 	CopyBy string
 	When   time.Time
+	// The two versions side by side, for choosing between them.
+	CopyEntry, OriginalEntry Entry
 }
 
 // Conflicts lists every conflict copy in the folder, made on any device.
@@ -485,7 +487,10 @@ func (e *Engine) Conflicts() []Conflict {
 				continue
 			}
 			when, _ := time.ParseInLocation("20060102-150405", m[2], time.Local)
-			out = append(out, Conflict{Copy: f.Name, Original: m[1] + m[4], CopyBy: e.nameOf(m[3]), When: when})
+			c := Conflict{Copy: f.Name, Original: m[1] + m[4], CopyBy: e.nameOf(m[3]), When: when}
+			c.CopyEntry, _ = e.Stat(c.Copy)
+			c.OriginalEntry, _ = e.Stat(c.Original)
+			out = append(out, c)
 		}
 	}
 	walk("")

@@ -13,7 +13,7 @@ struct MagpieApp: App {
 
     var body: some Scene {
         MenuBarExtra {
-            MenuPanel(updater: updater.updater)
+            MenuPanel()
                 .environmentObject(model)
         } label: {
             MenuLabel(symbol: menuSymbol)

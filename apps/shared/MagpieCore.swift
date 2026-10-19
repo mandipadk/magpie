@@ -60,6 +60,9 @@ struct Conflict: Codable, Hashable, Identifiable {
     var Original: String
     var CopyBy: String
     var When: Date
+    /// The two versions side by side (absent from older engines).
+    var CopyEntry: Entry?
+    var OriginalEntry: Entry?
     var id: String { Copy }
     var fileName: String { (Original as NSString).lastPathComponent }
 }
@@ -130,4 +133,22 @@ enum ConfigStore {
 /// A short human size: "6.2 GB".
 func humanBytes(_ n: Int64) -> String {
     ByteCountFormatter.string(fromByteCount: n, countStyle: .file)
+}
+
+/// "Today at 14:02", "Yesterday at 9:15", "Oct 12 at 18:40".
+func friendlyTime(_ d: Date) -> String {
+    let cal = Calendar.current
+    let time = d.formatted(date: .omitted, time: .shortened)
+    if cal.isDateInToday(d) { return "Today at \(time)" }
+    if cal.isDateInYesterday(d) { return "Yesterday at \(time)" }
+    let day = cal.isDate(d, equalTo: .now, toGranularity: .year)
+        ? d.formatted(.dateTime.month(.abbreviated).day())
+        : d.formatted(.dateTime.month(.abbreviated).day().year())
+    return "\(day) at \(time)"
+}
+
+/// A conflict side's time and size, e.g. "Today at 14:02, 182 KB".
+func versionLine(_ e: Entry?, fallback: Date) -> String {
+    guard let e, e.Modified.timeIntervalSince1970 > 0 else { return friendlyTime(fallback) }
+    return "\(friendlyTime(e.Modified)), \(humanBytes(e.Size))"
 }

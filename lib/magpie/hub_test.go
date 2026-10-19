@@ -277,6 +277,9 @@ func TestHubConflictKeepsBoth(t *testing.T) {
 	if c.Original != "Budget.numbers" {
 		t.Fatalf("conflict original %q", c.Original)
 	}
+	if c.CopyEntry.Path != c.Copy || c.OriginalEntry.Path != c.Original || c.CopyEntry.Size == 0 || c.OriginalEntry.Modified.IsZero() {
+		t.Fatalf("conflict versions missing: %+v", c)
+	}
 	got := map[string]bool{string(fetch(t, mac, "Budget.numbers")): true, string(fetch(t, mac, c.Copy)): true}
 	if !got["mac edit"] || !got["phone edit"] {
 		t.Fatalf("lost an edit: %v", got)
