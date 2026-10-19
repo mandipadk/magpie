@@ -92,7 +92,7 @@ footer button{font:inherit;color:inherit;background:none;border:0;min-height:44p
     </div>
     <div class="row">
       <svg class="i" viewBox="0 0 24 24"><rect width="14" height="20" x="5" y="2" rx="2" ry="2"/><path d="M12 18h.01"/></svg>
-      <div class="k">iPhone<small>iOS 17 or later, through TestFlight</small></div>
+      <div class="k">iPhone<small id="ios-note">iOS 17 or later, through TestFlight</small></div>
       <span id="ios-act" class="muted">Checking</span>
     </div>
   </div>
@@ -172,7 +172,7 @@ function renderServer(st) {
   $("setup-title").textContent = first ? "Set up your first device" : "Add a device";
   $("setup-note").textContent = first
     ? "Paste this link into Magpie, or scan it with your iPhone. It works once, for 15 minutes. This first device makes the encryption key; add the rest from Magpie on that device."
-    : "Open Magpie on one of your devices and choose Add a device. New devices need the encryption key, and only your devices have it.";
+    : "On your Mac, click Magpie in the menu bar and choose Add Device…, then scan the code with the iPhone. New devices need the encryption key, and only your devices have it.";
   $("make").parentElement.hidden = !first;
   if (!first) $("made").classList.remove("on");
   // A setup link only helps once the server is reachable and there's an app to paste it into.
@@ -188,7 +188,10 @@ function renderApps(st) {
   } else {
     $("mac-act").textContent = "First build on its way";
   }
-  if (st.iphone) $("ios-act").outerHTML = `<a class="btn line" id="ios-act" href="${esc(st.iphone.url)}">Open TestFlight</a>`;
+  if (st.iphone) {
+    $("ios-note").textContent = "In TestFlight as Space: Magpie, iOS 17 or later";
+    $("ios-act").outerHTML = `<a class="btn line" id="ios-act" href="${esc(st.iphone.url)}">Get TestFlight</a>`;
+  }
   else $("ios-act").textContent = "On TestFlight soon";
 }
 

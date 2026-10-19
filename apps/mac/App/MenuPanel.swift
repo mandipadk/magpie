@@ -59,6 +59,7 @@ struct MenuPanel: View {
             Divider().padding(.horizontal, 14).padding(.vertical, 5)
             if model.joined {
                 item("Open Magpie in Finder") { model.revealInFinder() }
+                item("Add Device…") { open("add-device") }
             }
             item("Settings…", key: ",") { openSettings(); NSApp.activate(ignoringOtherApps: true) }
             item("Quit Magpie", key: "q") { NSApp.terminate(nil) }

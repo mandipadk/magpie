@@ -220,30 +220,39 @@ private struct DevicesTab: View {
     @State private var adding = false
 
     var body: some View {
-        Form {
-            Section {
-                ForEach(model.devices) { d in
-                    HStack(spacing: 10) {
-                        Image(systemName: d.Hub ? "server.rack" : (d.Name.localizedCaseInsensitiveContains("iphone") ? "iphone" : "laptopcomputer"))
+        VStack(spacing: 0) {
+            Form {
+                Section {
+                    if model.devices.isEmpty {
+                        Text(model.reachable ? "Looking for your devices…" : "Connecting to Magpie…")
                             .foregroundStyle(.secondary)
-                            .frame(width: 20)
-                        VStack(alignment: .leading, spacing: 1) {
-                            Text(d.Name)
-                            Text(d.ThisOne ? "This Mac" : d.Hub ? "Server. Holds everything encrypted and can't read it." : "Syncs through Frankfurt")
-                                .font(.caption).foregroundStyle(.secondary)
+                    }
+                    ForEach(model.devices) { d in
+                        HStack(spacing: 10) {
+                            Image(systemName: d.Hub ? "server.rack" : (d.Name.localizedCaseInsensitiveContains("iphone") ? "iphone" : "laptopcomputer"))
+                                .foregroundStyle(.secondary)
+                                .frame(width: 20)
+                            VStack(alignment: .leading, spacing: 1) {
+                                Text(d.Name)
+                                Text(d.ThisOne ? "This Mac" : d.Hub ? "Server. Holds everything encrypted and can't read it." : "Syncs through Frankfurt")
+                                    .font(.caption).foregroundStyle(.secondary)
+                            }
                         }
                     }
                 }
-            } footer: {
-                HStack {
-                    Text("Files are encrypted on each device with a key the server never sees.")
-                        .font(.caption).foregroundStyle(.secondary)
-                    Spacer()
-                    Button("Add Device…") { adding = true }
-                }
             }
+            .formStyle(.grouped)
+            // The button lives outside the Form: a grouped Form drops a
+            // section's footer when the section has no rows.
+            HStack {
+                Text("Files are encrypted on each device with a key the server never sees.")
+                    .font(.caption).foregroundStyle(.secondary)
+                Spacer()
+                Button("Add Device…") { adding = true }
+            }
+            .padding(.horizontal, 20)
+            .padding(.bottom, 16)
         }
-        .formStyle(.grouped)
         .frame(minHeight: 260)
         .sheet(isPresented: $adding) { AddDeviceSheet() }
     }

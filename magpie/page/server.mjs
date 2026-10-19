@@ -15,7 +15,9 @@ const SAMPLE = ["1", "first"].includes(process.env.MAGPIE_PAGE_SAMPLE);
 const SAMPLE_FIRST = process.env.MAGPIE_PAGE_SAMPLE === "first";
 const HUB_ADDR = { host: "92.5.139.56", port: 22000 };
 const DMG = "https://github.com/mandipadk/magpie/releases/download/mac-latest/Magpie.dmg";
-const TESTFLIGHT = process.env.MAGPIE_TESTFLIGHT_URL || "";
+// Internal TestFlight has no public link: the owner is in the "Owner" group,
+// so the app waits in the TestFlight app on their iPhone.
+const TESTFLIGHT = process.env.MAGPIE_TESTFLIGHT_URL || "https://apps.apple.com/app/testflight/id899247664";
 const HUBD = ["frankfurt", "sudo", "-n", "-u", "magpie", "/opt/magpie/current/magpie-hubd"];
 
 function hubd(...args) {
