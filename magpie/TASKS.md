@@ -94,7 +94,7 @@ public, and frankfurt:~/code/magpie). Page: https://magpie.mandip.dev (private, 
   engine drops non-clean names from other devices (TestValidFiles); hubd status counted history in
   the old .stversions (TestJoinByInvite). Frankfurt --build-only 3/3 green. CI run 39237564033 green
   (check-app passes the requirement, Sparkle tarball OK; Mac update and TestFlight build published).
-  Hub deploy NOT done: `power run` deploy.sh timed out twice with no answer; hub on 7994f8984f12.
+  Hub deployed 20f7f3b12deb after the owner allowed it (10:43 UTC): healthy, firewall ok, Mac reconnected.
   Not fixed: removed devices can rejoin with the invite key (task above). Left alone: a stale
   /var/lib/magpie/.syncthing.tmp.522431330 from 04:11 (0600, magpie); rpcbind on 0.0.0.0:111 on
   Frankfurt (not Magpie). Not testable here: the XPC gate on a real Mac (CI checks the signature
