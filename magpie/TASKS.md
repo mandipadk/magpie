@@ -10,6 +10,20 @@ public, and frankfurt:~/code/magpie). Page: https://magpie.mandip.dev (private, 
       page > Add a device on the Mac (or menu bar > Add Device…), scan with Magpie on the iPhone;
       then save on Mac -> Files on the phone. See SCOPE.md.
 
+## Kiln page and the iPhone app's connection (2026-10-19, evening)
+- [x] Page rebuilt on Kiln (github:mandipadk/designsystem @d5e4642): magpie/page/web (React, Kiln
+      components, tokens, Mona Sans, Kiln's theme menu), built into magpie/page/dist and served by
+      server.mjs. Hub status is the hero; devices show state words and since/last seen (hubd now
+      reports connectedAt); apps show their facts. Kiln's rules over two critic asks: a state is a
+      word (no dots), facts never joined with dots. Critic: 8/10, then its fixes
+- [x] Owner (photo, build 40): the app said "Starting", 0 devices, Pause did nothing; Files showed the
+      folder with "Syncing with Magpie paused". The app reached the extension through the Files URL,
+      which an iPhone app can't open, so it never connected. Now via NSFileProviderManager.getService
+      (build 43; the Mac e2e runs that path through Add Device, green)
+- [ ] Owner: build 43; does the app show Up to date and do Files show the Mac's files? Is the
+      "paused" bar gone (likely iOS backing off after the memory kills in builds <= 39; not confirmed)
+- [ ] Owner's Mac: update from build 10 not confirmed (the hub can't tell a device's build)
+
 ## iPhone joined (2026-10-19 18:02 UTC), but doesn't stay connected
 - [x] Hub admitted J7RG4PP ("iPhone") at 18:02 with a valid invite (so from the Mac, with the key)
 - [x] Every iPhone connection ended ~1 s after it opened. Owner (build 39): app says "Starting", no
