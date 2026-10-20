@@ -170,6 +170,7 @@ public, and frankfurt:~/code/magpie). Page: https://magpie.mandip.dev (private, 
   /var/lib/magpie/.syncthing.tmp.522431330 from 04:11 (0600, magpie); rpcbind on 0.0.0.0:111 on
   Frankfurt (not Magpie). Not testable here: the XPC gate on a real Mac (CI checks the signature
   matches); iPhone: the gate is macOS-only for now (other apps reach the service only for items the user hands them).
-- 2026-10-20 (6c6e20): upstream/main still 775573cb2, already merged; nothing to take, no build or
-  deploy. Hub status: v2.1.7-rc.3.dev.83.g3ba58ff8-magpie, folderErrors 0, encrypted, 6 files
-  (commits since then are page/app only, no lib/cmd changes).
+- 2026-10-20 (6c6e20): upstream/main still 775573cb2, already merged; nothing to take. Frankfurt
+  `deploy.sh --build-only` 5/5 green on 62b7d8dee (lib/magpie, cmd/magpie-hubd vs real hub);
+  deployed 62b7d8dee401 (was 3ba58ff8; changes since are page/app only). Status:
+  v2.1.7-rc.3.dev.88.g62b7d8de-magpie, folderErrors 0, encrypted, 6 files.
