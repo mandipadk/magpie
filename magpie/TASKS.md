@@ -174,3 +174,10 @@ public, and frankfurt:~/code/magpie). Page: https://magpie.mandip.dev (private, 
   `deploy.sh --build-only` 5/5 green on 62b7d8dee (lib/magpie, cmd/magpie-hubd vs real hub);
   deployed 62b7d8dee401 (was 3ba58ff8; changes since are page/app only). Status:
   v2.1.7-rc.3.dev.88.g62b7d8de-magpie, folderErrors 0, encrypted, 6 files.
+- 2026-10-21 (6c6e20): merged upstream d6d0181f7 (fix(model): compare blocks when reconciling
+  receive-only, #10929; one line in lib/model/folder.go) as ab5302501, no conflicts. Frankfurt
+  `deploy.sh --build-only` failed 1 of 5: TestHubDeleteKeepsHistory, hub API "bind: address already
+  in use" because the test picked the GUI and listen ports one after the other and got the same one.
+  Fixed in the tests (35b368a8e, freePorts holds both listeners; lib/magpie and cmd/magpie-hubd);
+  then 10/10 green. Deployed 35b368a8e358. Status: v2.1.7-rc.3.dev.92.g35b368a8-magpie,
+  folderErrors 0, encrypted, 6 files (Mac and iPhone not connected at the time).
