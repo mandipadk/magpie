@@ -6,9 +6,7 @@ Finder and Files. Working copy: chicago:~/code/magpie (pushes to origin = github
 public, and frankfurt:~/code/magpie). Page: https://magpie.mandip.dev (private, magpie/page).
 
 ## Waiting on the owner
-- [ ] iPhone (app already installed; TestFlight build 35 or newer, not 27-32): after the Mac update,
-      page > Add a device on the Mac (or menu bar > Add Device…), scan with Magpie on the iPhone;
-      then save on Mac -> Files on the phone. See SCOPE.md.
+- [x] iPhone joined from the Mac's Add Device and shows the Mac's files (owner, build 43, 2026-10-21)
 
 ## The page as an app (owner, 2026-10-19 ~19:10)
 - [x] Rebuilt from Kiln app parts (Kiln e95a578): top bar with a status Tag and the theme menu; Stat
@@ -26,8 +24,7 @@ public, and frankfurt:~/code/magpie). Page: https://magpie.mandip.dev (private, 
       folder with "Syncing with Magpie paused". The app reached the extension through the Files URL,
       which an iPhone app can't open, so it never connected. Now via NSFileProviderManager.getService
       (build 43; the Mac e2e runs that path through Add Device, green)
-- [ ] Owner: build 43; does the app show Up to date and do Files show the Mac's files? Is the
-      "paused" bar gone (likely iOS backing off after the memory kills in builds <= 39; not confirmed)
+- [x] Owner (2026-10-21): build 43 says Up to date and a Mac file opens in the Files app
 - [ ] Owner's Mac: update from build 10 not confirmed (the hub can't tell a device's build)
 
 ## iPhone joined (2026-10-19 18:02 UTC), but doesn't stay connected
@@ -58,7 +55,7 @@ public, and frankfurt:~/code/magpie). Page: https://magpie.mandip.dev (private, 
       extension process, so the updated Mac's engine never opened; removed (build 33+). Add Device
       said "isn't reachable" when opened before the app connected; it now waits. A restored join
       window showed on a joined Mac after an update; now closes
-- [ ] Owner: Check for Updates on the Mac (build 10 -> 39, live after e2e run 39298090535), then the page's Add a device
+- [ ] Owner: Check for Updates on the Mac (build 10 -> latest, live after e2e run 39298090535), then the page's Add a device
 - Open: macOS runs the extension in two processes, each opening the engine on the same files.
   Worked for hours on the owner's Mac; needs one engine owner per device (design, not a lock)
 - Not known: what exactly froze the Mac (no access to it). Not repeated on purpose.

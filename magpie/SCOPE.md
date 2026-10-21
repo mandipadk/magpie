@@ -1,6 +1,6 @@
 # What Magpie's checks cover, and what they don't
 
-Updated 2026-10-19. "CI e2e" is `apps/mac/e2e.sh` on a fresh GitHub macOS 15 runner, run on every
+Updated 2026-10-21. "CI e2e" is `apps/mac/e2e.sh` on a fresh GitHub macOS 15 runner, run on every
 push; it installs the apps exactly as shipped (Developer ID, notarized). "Hub tests" are
 `lib/magpie` and `cmd/magpie-hubd` against a real hub, run by CI and by `deploy.sh` on Frankfurt.
 
@@ -18,13 +18,13 @@ push; it installs the apps exactly as shipped (Developer ID, notarized). "Hub te
 | Invites, strangers, reused and forged links | Hub tests |
 | Removing a device locks it out | Hub tests: its own invites are refused; the Mac's invites keep working with the new key |
 | Version history (list, preview, restore, deleted files) | Hub tests; no plaintext on the hub |
+| The iPhone app and Files on a real iPhone | The owner, build 43 (2026-10-21): the app says Up to date and a file saved on the Mac opens in Files |
 
 ## Not tested
 
 | What | Why |
 | --- | --- |
-| The iPhone app on a real iPhone | No iPhone here. The owner's iPhone (build 39) joined but iOS killed its Files extension for memory (JetsamEvent); build 40 cuts a connection's peak from 53 MB to 20 MB, measured with the same engine on Linux, not on the phone |
-| Files app on iOS (browse, open, save) | Same; only the simulator screenshots of the Magpie app |
+| Saving from the iPhone's Files app back to the Mac | The owner confirmed Mac to iPhone; the other direction is covered only by CI's second device (cmd/magpie-phone) |
 | The owner's own Mac after an update | CI's Mac is fresh each run and updates from build 25; the owner's Mac runs build 10 and froze mounting build 22's image |
 | macOS's two extension processes sharing one engine's files | Seen in CI logs; no corruption seen, not tested for it |
 | Sparkle's in-app flow (the "Install and Relaunch" window) | CI drives Sparkle's own command-line tool with the same appcast, key and installer |
