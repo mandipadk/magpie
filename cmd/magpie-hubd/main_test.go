@@ -23,13 +23,19 @@ import (
 	"github.com/syncthing/syncthing/lib/magpie"
 )
 
-func freePort(t *testing.T) int {
-	l, err := net.Listen("tcp", "127.0.0.1:0")
-	if err != nil {
-		t.Fatal(err)
+// freePorts returns n distinct free ports; the listeners stay open until all
+// are picked so the kernel can't hand the same port out twice.
+func freePorts(t *testing.T, n int) []int {
+	ports := make([]int, n)
+	for i := range ports {
+		l, err := net.Listen("tcp", "127.0.0.1:0")
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer l.Close()
+		ports[i] = l.Addr().(*net.TCPAddr).Port
 	}
-	defer l.Close()
-	return l.Addr().(*net.TCPAddr).Port
+	return ports
 }
 
 func startHub(t *testing.T) (*hub, string) {
@@ -38,14 +44,15 @@ func startHub(t *testing.T) (*hub, string) {
 		t.Skip("MAGPIE_SYNCTHING not set")
 	}
 	home := t.TempDir()
-	addr := fmt.Sprintf("127.0.0.1:%d", freePort(t))
+	ports := freePorts(t, 2)
+	addr := fmt.Sprintf("127.0.0.1:%d", ports[0])
 	h := &hub{home: home}
 	if err := h.init(bin, addr); err != nil {
 		t.Fatal(err)
 	}
 	// a free GUI port for parallel runs
 	cfg, _ := os.ReadFile(filepath.Join(home, "config.xml"))
-	cfg = bytes.Replace(cfg, []byte("127.0.0.1:8385"), []byte(fmt.Sprintf("127.0.0.1:%d", freePort(t))), 1)
+	cfg = bytes.Replace(cfg, []byte("127.0.0.1:8385"), []byte(fmt.Sprintf("127.0.0.1:%d", ports[1])), 1)
 	cfg = bytes.ReplaceAll(cfg, []byte("0.0.0.0:"), []byte("127.0.0.1:"))
 	_ = os.WriteFile(filepath.Join(home, "config.xml"), cfg, 0o600)
 

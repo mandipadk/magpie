@@ -36,13 +36,19 @@ type hub struct {
 	cmd            *exec.Cmd
 }
 
-func freePort(t *testing.T) int {
-	l, err := net.Listen("tcp", "127.0.0.1:0")
-	if err != nil {
-		t.Fatal(err)
+// freePorts returns n distinct free ports; the listeners stay open until all
+// are picked so the kernel can't hand the same port out twice.
+func freePorts(t *testing.T, n int) []int {
+	ports := make([]int, n)
+	for i := range ports {
+		l, err := net.Listen("tcp", "127.0.0.1:0")
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer l.Close()
+		ports[i] = l.Addr().(*net.TCPAddr).Port
 	}
-	defer l.Close()
-	return l.Addr().(*net.TCPAddr).Port
+	return ports
 }
 
 // startHub runs syncthing with the folder "magpie" receive-encrypted and
@@ -61,7 +67,8 @@ func startHub(t *testing.T, devices map[string]string) *hub {
 		t.Fatal(err)
 	}
 	id := strings.TrimSpace(string(out))
-	port := freePort(t)
+	ports := freePorts(t, 2)
+	port := ports[0]
 	h := &hub{id: id, addr: fmt.Sprintf("127.0.0.1:%d", port), home: home}
 
 	var folderDevs, devs strings.Builder
@@ -92,7 +99,7 @@ func startHub(t *testing.T, devices map[string]string) *hub {
 <crashReportingEnabled>false</crashReportingEnabled>
 <startBrowser>false</startBrowser>
 </options>
-</configuration>`, filepath.Join(home, "data"), folderDevs.String(), devs.String(), freePort(t), h.addr, filepath.Join(home, "history"))
+</configuration>`, filepath.Join(home, "data"), folderDevs.String(), devs.String(), ports[1], h.addr, filepath.Join(home, "history"))
 	if err := os.WriteFile(filepath.Join(home, "config.xml"), []byte(cfg), 0o600); err != nil {
 		t.Fatal(err)
 	}
