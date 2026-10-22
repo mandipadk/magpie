@@ -178,3 +178,6 @@ public, and frankfurt:~/code/magpie). Page: https://magpie.mandip.dev (private, 
   Fixed in the tests (35b368a8e, freePorts holds both listeners; lib/magpie and cmd/magpie-hubd);
   then 10/10 green. Deployed 35b368a8e358. Status: v2.1.7-rc.3.dev.92.g35b368a8-magpie,
   folderErrors 0, encrypted, 6 files (Mac and iPhone not connected at the time).
+- 2026-10-22 (c73277cd): upstream/main still d6d0181f7, already merged; nothing to take. No engine
+  or hub code changes since the deployed 35b368a8e (only docs), so no rebuild or redeploy. Status:
+  v2.1.7-rc.3.dev.92.g35b368a8-magpie, folderErrors 0, encrypted, 6 files, Mac connected.
