@@ -181,3 +181,9 @@ public, and frankfurt:~/code/magpie). Page: https://magpie.mandip.dev (private, 
 - 2026-10-22 (c73277cd): upstream/main still d6d0181f7, already merged; nothing to take. No engine
   or hub code changes since the deployed 35b368a8e (only docs), so no rebuild or redeploy. Status:
   v2.1.7-rc.3.dev.92.g35b368a8-magpie, folderErrors 0, encrypted, 6 files, Mac connected.
+- 2026-10-23 (c6c00af8): merged upstream a4a2da477 (fix(model): skip ignored folders when
+  auto-accepting, #10935; lib/model only) as f40c14cb4, no conflicts. Frankfurt
+  `deploy.sh --build-only` 5/5 green on f40c14cb4 (lib/magpie, cmd/magpie-hubd vs real hub);
+  pushed origin + frankfurt. Deploy blocked by the session's safety check; sent to the owner via
+  `power run` (request timed out waiting for the tap). Hub still on 35b368a8e
+  (v2.1.7-rc.3.dev.92.g35b368a8-magpie), Mac connected.
