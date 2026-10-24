@@ -187,3 +187,7 @@ public, and frankfurt:~/code/magpie). Page: https://magpie.mandip.dev (private, 
   pushed origin + frankfurt. Deploy blocked by the session's safety check; sent to the owner via
   `power run` (request timed out waiting for the tap). Hub still on 35b368a8e
   (v2.1.7-rc.3.dev.92.g35b368a8-magpie), Mac connected.
+- 2026-10-24 (80310133): upstream/main still a4a2da477, already merged; nothing to take. Yesterday's
+  pending deploy did go through (hub uptime ~18 h): status v2.1.7-rc.3.dev.98.g0102f0e5-magpie =
+  magpie HEAD before this entry, folderErrors 0, encrypted, 6 files; Mac last seen 09:29 UTC, iPhone
+  10-22. No engine or hub changes since, so no rebuild or redeploy.
