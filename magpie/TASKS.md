@@ -193,4 +193,5 @@ public, and frankfurt:~/code/magpie). Page: https://magpie.mandip.dev (private, 
   10-22. No engine or hub changes since, so no rebuild or redeploy.
 - 2026-10-25 (3b83063d): upstream/main still a4a2da477, already merged; nothing to take. Hub status
   v2.1.7-rc.3.dev.98.g0102f0e5-magpie, folderErrors 0. No engine or hub changes since (only TASKS),
-  so no rebuild or redeploy.
+  so no redeploy. Frankfurt `deploy.sh --build-only` 5/5 green on 2c182b6d6 (lib/magpie,
+  cmd/magpie-hubd vs real hub).
