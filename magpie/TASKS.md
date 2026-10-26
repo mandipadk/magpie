@@ -195,3 +195,8 @@ public, and frankfurt:~/code/magpie). Page: https://magpie.mandip.dev (private, 
   v2.1.7-rc.3.dev.98.g0102f0e5-magpie, folderErrors 0. No engine or hub changes since (only TASKS),
   so no redeploy. Frankfurt `deploy.sh --build-only` 5/5 green on 2c182b6d6 (lib/magpie,
   cmd/magpie-hubd vs real hub).
+- 2026-10-26 (5f8adfe8): merged upstream 70b5bc78c (chore: docs, translations, contributors; GUI
+  and man pages only) as 3a394236d, no conflicts. Frankfurt `deploy.sh --build-only` 5/5 green on
+  3a394236d (lib/magpie, cmd/magpie-hubd vs real hub); pushed origin + frankfurt. Deploy blocked by
+  the session's safety check; sent to the owner via `power run` (timed out waiting for the tap). Hub
+  still on v2.1.7-rc.3.dev.98.g0102f0e5-magpie, folderErrors 0, Mac connected.
