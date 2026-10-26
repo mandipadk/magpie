@@ -65,6 +65,10 @@ func startHub(t *testing.T) (*hub, string) {
 	}
 	t.Cleanup(func() { _ = cmd.Process.Kill(); _, _ = cmd.Process.Wait() })
 	waitFor(t, "hub API", func() bool { _, err := h.status(); return err == nil })
+	// The hub never turns usage reporting on, whatever its version says.
+	if ur := urAccepted(t, h); ur > 0 {
+		t.Fatalf("the hub started with usage reporting on (urAccepted %v)", ur)
+	}
 
 	ctx, cancel := context.WithCancel(context.Background())
 	t.Cleanup(cancel)
@@ -72,6 +76,7 @@ func startHub(t *testing.T) (*hub, string) {
 		for ctx.Err() == nil {
 			_ = h.admit()
 			_ = h.ensureHistory()
+			_ = h.ensureNoReporting()
 			time.Sleep(200 * time.Millisecond)
 		}
 	}()
@@ -276,4 +281,62 @@ func TestHistoryForOlderHubs(t *testing.T) {
 		s, err := h.status()
 		return err == nil && s.HistoryN == 1 && s.HistoryAt.Equal(time.Date(2026, 10, 19, 5, 39, 53, 0, time.UTC))
 	})
+}
+
+func urAccepted(t *testing.T, h *hub) float64 {
+	t.Helper()
+	var opts map[string]any
+	if err := h.api("GET", "/rest/config/options", nil, &opts); err != nil {
+		t.Fatal(err)
+	}
+	ur, _ := opts["urAccepted"].(float64)
+	return ur
+}
+
+// A hub that had usage reporting switched on (older hubs, built from a
+// release-candidate version) gets it switched off again.
+func TestUsageReportingOff(t *testing.T) {
+	h, _ := startHub(t)
+	if err := h.api("PATCH", "/rest/config/options", map[string]any{"urAccepted": 3}, nil); err != nil {
+		t.Fatal(err)
+	}
+	waitFor(t, "usage reporting off", func() bool { return urAccepted(t, h) == -1 })
+}
+
+// A remove that can't replace the invite key leaves the device in place,
+// so the owner sees it still there and can remove it again.
+func TestRemoveKeepsDeviceUntilKeyReplaced(t *testing.T) {
+	h, _ := startHub(t)
+	setup, err := h.setupLink("")
+	if err != nil {
+		t.Fatal(err)
+	}
+	mac := join(t, setup, "MacBook Air")
+	waitFor(t, "the Mac to be admitted", func() bool { return ready(mac) })
+	oldKey, _ := h.inviteKey()
+
+	if err := os.Chmod(h.dir(), 0o500); err != nil { // the new key can't be written
+		t.Fatal(err)
+	}
+	err = h.remove(mac.DeviceID())
+	_ = os.Chmod(h.dir(), 0o700)
+	if err == nil {
+		t.Fatal("remove succeeded without replacing the invite key")
+	}
+	if key, _ := h.inviteKey(); !bytes.Equal(key, oldKey) {
+		t.Fatal("the invite key changed")
+	}
+	if s, _ := h.status(); len(s.Devices) != 1 {
+		t.Fatalf("the device went without its key being replaced: %+v", s.Devices)
+	}
+
+	if err := h.remove(mac.DeviceID()); err != nil {
+		t.Fatal(err)
+	}
+	if key, _ := h.inviteKey(); bytes.Equal(key, oldKey) {
+		t.Fatal("the invite key wasn't replaced")
+	}
+	if s, _ := h.status(); len(s.Devices) != 0 {
+		t.Fatalf("the device is still there: %+v", s.Devices)
+	}
 }

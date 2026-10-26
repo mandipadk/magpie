@@ -311,17 +311,22 @@ func (h *hub) run() error {
 		if err := h.ensureHistory(); err != nil {
 			log.Printf("magpie-hubd: history: %v", err)
 		}
+		if err := h.ensureNoReporting(); err != nil {
+			log.Printf("magpie-hubd: usage reporting: %v", err)
+		}
 		time.Sleep(2 * time.Second)
 	}
 }
 
 func (h *hub) admit() error {
-	key, err := h.inviteKey()
-	if err != nil {
-		return err
-	}
 	var pending map[string]pendingDevice
 	if err := h.api("GET", "/rest/cluster/pending/devices", nil, &pending); err != nil {
+		return err
+	}
+	// The key is read after the pending list, so a device removed (and its
+	// key replaced) before it showed up as pending is checked against the new key.
+	key, err := h.inviteKey()
+	if err != nil {
 		return err
 	}
 	for id, p := range pending {
@@ -394,6 +399,21 @@ func (h *hub) add(id, name string) error {
 	}
 	folder["devices"] = append(devs, map[string]any{"deviceID": id})
 	return h.api("PUT", "/rest/config/folders/"+folderID, folder, nil)
+}
+
+// ensureNoReporting turns Syncthing's usage reporting off. Hubs built from a
+// release-candidate version had it switched on at every start; the firewall
+// kept the reports in, but the hub shouldn't try.
+func (h *hub) ensureNoReporting() error {
+	var opts map[string]any
+	if err := h.api("GET", "/rest/config/options", nil, &opts); err != nil {
+		return err
+	}
+	if ur, _ := opts["urAccepted"].(float64); ur < 0 {
+		return nil
+	}
+	log.Printf("magpie-hubd: turning usage reporting off")
+	return h.api("PATCH", "/rest/config/options", map[string]any{"urAccepted": -1}, nil)
 }
 
 // ensureHistory keeps the history folder in step with the main one: versions
@@ -526,12 +546,13 @@ func (h *hub) remove(id string) error {
 	if devID.String() == st.MyID {
 		return errors.New("that is the hub itself")
 	}
-	if err := h.api("DELETE", "/rest/config/devices/"+devID.String(), nil, nil); err != nil {
+	// The removed device holds the invite key; without a new one it could
+	// make itself an invite and come straight back. Replace the key first, so
+	// a failed or killed remove leaves the device listed to remove again.
+	if err := h.rotateKey(); err != nil {
 		return err
 	}
-	// The removed device holds the invite key; without a new one it could
-	// make itself an invite and come straight back.
-	if err := h.rotateKey(); err != nil {
+	if err := h.api("DELETE", "/rest/config/devices/"+devID.String(), nil, nil); err != nil {
 		return err
 	}
 	log.Printf("magpie-hubd: removed %s; invite key replaced", devID.Short())
