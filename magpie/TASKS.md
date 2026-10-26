@@ -134,6 +134,15 @@ public, and frankfurt:~/code/magpie). Page: https://magpie.mandip.dev (private, 
       (deployed: live hub migrated 06:33 UTC). Mac: Finder "Version History…" window + Settings >
       History; iPhone: Version history in the app
 - [ ] Push nudges from the hub so the iPhone updates without opening Files
+- [ ] iPhone extension service answers any app it hands an item to (security review 2026-10-26):
+      the macOS service is code-signing-gated, the iOS one isn't, so an app given a Magpie file could
+      call invite() and get the folder password and invite key. Fix: a per-call secret from the
+      shared keychain group (at least for invite()); needs testing on the owner's iPhone.
+- [ ] Invite key kept in a plaintext file in the engine folder (lib/magpie/keys.go, since the key
+      rotation, 2026-10-19), which backups include. Keep it in the keychain config, or exclude the
+      engine folder from backups with complete file protection.
+- [ ] magpie1:join links: the iPhone joins a not-yet-joined device straight from a link, with no
+      confirmation; show the hub's address and ID and ask first (Mac and iPhone).
 - [x] Real lock-out for a removed device (security review 2026-10-19; done the same day, see above): every device holds the hub's
       invite key and the folder password, so a removed (e.g. stolen) device can mint a fresh token
       and join again. Proposal: hub-issued invites over the device's own connection (or per-device
@@ -200,3 +209,29 @@ public, and frankfurt:~/code/magpie). Page: https://magpie.mandip.dev (private, 
   3a394236d (lib/magpie, cmd/magpie-hubd vs real hub); pushed origin + frankfurt. Deploy blocked by
   the session's safety check; sent to the owner via `power run` (timed out waiting for the tap). Hub
   still on v2.1.7-rc.3.dev.98.g0102f0e5-magpie, folderErrors 0, Mac connected.
+- 2026-10-26 (693e2a, weekly security review). Checked: govulncheck (Go 1.27.2) on lib/magpie,
+  cmd/magpie-hubd, cmd/syncthing: GO-2026-6809 (crypto/x509 distrust list) reachable, fixed in Go
+  1.27.3, now installed on Chicago and Frankfurt (old trees kept as ~/.local/go1.27.2); only other
+  hit is GO-2026-5932 (x/crypto/openpgp, not imported). No new Syncthing or quic-go (v0.63.0)
+  advisories. CI built the apps' engine with go.mod's Go 1.26.2: 14 reachable stdlib vulns
+  (crypto/tls, x509, net/http). Hub: only 22000 tcp/udp public for Magpie (plus sshd, geph5-exit
+  443, rpcbind 111: not Magpie), API on 127.0.0.1:8385, folder receiveencrypted, no plaintext
+  outside *.syncthing-enc (spot-check: 26 MB file, 8.00 bits/byte), firewall check ok, devices =
+  MacBook Pro + iPhone (both the owner's), invite used list 2 (10-19 05:32 Mac, 18:02 iPhone),
+  journal: 1413 of 1485 failed TLS handshakes are Chicago's port probe, the rest scattered
+  scanners (max 10 per address in a week). Found the hub forcing Syncthing usage reporting on at
+  every start (rc version = "candidate"; urAccepted 3); the egress firewall blocked all 16 tries.
+  GitHub: exactly the 8 secrets; Magpie workflows fully SHA-pinned (unpinned ones are upstream's,
+  disabled or guarded to syncthing); no secrets in the tree or new files. Code review of
+  7ff713976..HEAD (subagent, findings checked here): see below and the three new tasks in 6.
+  Fixed (aa6895477): builds that can't upgrade don't force usage reporting, and hubd turns it off on
+  hubs that had it (TestUsageReportingOff; startHub checks every hub starts with it off); remove
+  replaces the invite key before deleting the device and admit reads the key after the pending
+  list, so a failed remove can't leave a removed device able to rejoin
+  (TestRemoveKeepsDeviceUntilKeyReplaced; both new tests failed on the old code); CI builds with
+  the newest Go 1.27.x and runs govulncheck. Frankfurt --build-only 5/5 green (go1.27.3, rc
+  version); CI run 40306089143 engine (with govulncheck) and mac green.
+  Deploy blocked by the session's safety check; sent via `power run` (timed out waiting for the
+  tap). Hub still on 0102f0e5 until it runs.
+  Open (tasks in 6): iPhone service ungated for invite(); invite key in a plaintext file in the
+  engine folder; join links without confirmation. Not tested: anything on a real device.
