@@ -233,7 +233,8 @@ public, and frankfurt:~/code/magpie). Page: https://magpie.mandip.dev (private, 
   (TestRemoveKeepsDeviceUntilKeyReplaced; both new tests failed on the old code); CI builds with
   the newest Go 1.27.x and runs govulncheck. Frankfurt --build-only 5/5 green (go1.27.3, rc
   version); CI run 40306089143 engine (with govulncheck) and mac green.
-  Deploy blocked by the session's safety check; sent via `power run` (timed out waiting for the
-  tap). Hub still on 0102f0e5 until it runs.
+  Deployed c01edc54c274 after the owner allowed it (13:50 UTC): v2.1.7-rc.3.dev.106.gc01edc54-magpie,
+  folderErrors 0, firewall ok, Mac connected; hubd logged "turning usage reporting off" once,
+  config now urAccepted -1, no "always enabled" line since the restart.
   Open (tasks in 6): iPhone service ungated for invite(); invite key in a plaintext file in the
   engine folder; join links without confirmation. Not tested: anything on a real device.
