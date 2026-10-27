@@ -3,6 +3,8 @@
 #
 #   deploy.sh                build, test, install and restart onto this commit
 #   deploy.sh --build-only   build into ./build and run the tests
+#   deploy.sh --stage        build, test and install into /opt/magpie/releases
+#                            only (what /usr/local/sbin/magpie-deploy runs)
 #
 # The hub is only restarted onto a build that passed the engine tests against
 # a real hub; if the restarted hub isn't healthy within a minute, the last
@@ -30,6 +32,8 @@ echo "== install $SHA"
 REL=$OPT/releases/$SHA
 mkdir -p "$REL"
 install -m 0755 build/syncthing build/magpie-hubd "$REL/"
+[[ "${1:-}" == --stage ]] && exit 0
+
 PREV=$(readlink "$OPT/current" || true)
 ln -sfn "releases/$SHA" "$OPT/current.new" && mv -T "$OPT/current.new" "$OPT/current"
 sudo -n systemctl restart magpie-hub

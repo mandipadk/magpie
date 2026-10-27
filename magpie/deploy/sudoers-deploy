@@ -1,0 +1,5 @@
+# Magpie deploy for the daily duty: the root-owned wrapper, with no arguments,
+# and the hub status check as magpie. Installed as /etc/sudoers.d/magpie-deploy.
+# Rollback: delete this file and /usr/local/sbin/magpie-deploy (README.md).
+ubuntu ALL=(root) NOPASSWD: /usr/local/sbin/magpie-deploy ""
+ubuntu ALL=(magpie) NOPASSWD: /opt/magpie/current/magpie-hubd status --home /var/lib/magpie

@@ -31,6 +31,9 @@ fi
 install -o root -g root -m 0755 "$SRC/magpie-firewall" /usr/local/sbin/magpie-firewall
 install -o root -g root -m 0440 "$SRC/sudoers" /etc/sudoers.d/magpie
 visudo -cf /etc/sudoers.d/magpie
+install -o root -g root -m 0755 "$SRC/magpie-deploy" /usr/local/sbin/magpie-deploy
+install -o root -g root -m 0440 "$SRC/sudoers-deploy" /etc/sudoers.d/magpie-deploy
+visudo -c
 
 for u in magpie-hub.service magpie-hubd.service; do
   install -o root -g root -m 0644 "$SRC/$u" "/etc/systemd/system/$u"

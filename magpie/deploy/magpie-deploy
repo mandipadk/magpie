@@ -1,0 +1,73 @@
+#!/usr/bin/env bash
+# Magpie hub deploy, for pipelines that may run this one command as root and
+# nothing else. Installed root-owned at /usr/local/sbin/magpie-deploy and
+# allowed to ubuntu by /etc/sudoers.d/magpie-deploy (see README.md).
+#
+#   sudo -n /usr/local/sbin/magpie-deploy
+#
+# Builds, tests and stages HEAD of ~ubuntu/code/magpie as ubuntu (deploy.sh
+# --stage), switches /opt/magpie/current to it, restarts the hub and rolls back
+# if it isn't healthy within a minute. Nothing from the repo runs as root.
+set -euo pipefail
+umask 022
+REPO=/home/ubuntu/code/magpie
+OPT=/opt/magpie
+
+[[ $EUID == 0 ]] || { echo "run it as root: sudo -n $0" >&2; exit 2; }
+[[ $# == 0 ]] || { echo "usage: magpie-deploy (no arguments)" >&2; exit 2; }
+cd /
+exec 9>/run/magpie-deploy.lock
+flock -n 9 || { echo "another magpie-deploy is running" >&2; exit 1; }
+
+as_ubuntu() {
+  runuser -u ubuntu -- env -i HOME=/home/ubuntu USER=ubuntu LANG=C.UTF-8 \
+    PATH=/home/ubuntu/.local/go/bin:/usr/local/bin:/usr/bin:/bin "$@"
+}
+point() { # point <link> <target>, done as ubuntu, who owns /opt/magpie
+  as_ubuntu ln -sfn "$2" "$OPT/$1.new" && as_ubuntu mv -T "$OPT/$1.new" "$OPT/$1"
+}
+restart() {
+  systemctl restart magpie-hub
+  systemctl restart magpie-hubd
+}
+status() {
+  runuser -u magpie -- "$OPT/current/magpie-hubd" status --home /var/lib/magpie
+}
+healthy() {
+  for _ in $(seq 30); do
+    if status >/dev/null 2>&1 && ss -Htln | grep -q ':22000 ' \
+       && /usr/local/sbin/magpie-firewall check >/dev/null; then
+      return 0
+    fi
+    sleep 2
+  done
+  return 1
+}
+
+SHA=$(as_ubuntu git -C "$REPO" rev-parse --short=12 HEAD)
+[[ $SHA =~ ^[0-9a-f]{12}$ ]] || { echo "bad commit: $SHA" >&2; exit 1; }
+as_ubuntu "$REPO/magpie/deploy.sh" --stage
+[[ $(as_ubuntu git -C "$REPO" rev-parse --short=12 HEAD) == "$SHA" ]] \
+  || { echo "HEAD moved during the build; not deploying" >&2; exit 1; }
+[[ -d $OPT/releases/$SHA && ! -L $OPT/releases/$SHA ]] \
+  || { echo "release $SHA was not staged" >&2; exit 1; }
+
+echo "== switch to $SHA"
+PREV=$(readlink "$OPT/current" || true)
+point current "releases/$SHA"
+restart
+
+if healthy; then
+  point last-good "releases/$SHA"
+  # keep the five newest releases
+  as_ubuntu bash -c 'cd "$1/releases" && ls -1t | tail -n +6 | while read -r old; do
+    [[ "$1/releases/$old" == "$(readlink -f "$1/last-good")" ]] || rm -rf -- "$1/releases/$old"
+  done' _ "$OPT"
+  echo "== deployed $SHA"
+  status
+else
+  echo "== $SHA is not healthy; rolling back to ${PREV:-last-good}"
+  point current "${PREV:-$(readlink "$OPT/last-good")}"
+  restart
+  exit 1
+fi
