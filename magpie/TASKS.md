@@ -238,3 +238,8 @@ public, and frankfurt:~/code/magpie). Page: https://magpie.mandip.dev (private, 
   config now urAccepted -1, no "always enabled" line since the restart.
   Open (tasks in 6): iPhone service ungated for invite(); invite key in a plaintext file in the
   engine folder; join links without confirmation. Not tested: anything on a real device.
+- 2026-10-27 (b6acd1d7): upstream/main still 70b5bc78c, already merged; nothing to take. No engine
+  or hub changes since the deployed c01edc54c (only TASKS), so no rebuild or redeploy. Frankfurt:
+  magpie-hub and magpie-hubd active, /opt/magpie/current -> releases/c01edc54c274. Not checked:
+  `magpie-hubd status` (folderErrors): the session refused the sudo, and the `power run` request
+  timed out waiting for the owner's tap.
