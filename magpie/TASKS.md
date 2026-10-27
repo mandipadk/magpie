@@ -240,6 +240,6 @@ public, and frankfurt:~/code/magpie). Page: https://magpie.mandip.dev (private, 
   engine folder; join links without confirmation. Not tested: anything on a real device.
 - 2026-10-27 (b6acd1d7): upstream/main still 70b5bc78c, already merged; nothing to take. No engine
   or hub changes since the deployed c01edc54c (only TASKS), so no rebuild or redeploy. Frankfurt:
-  magpie-hub and magpie-hubd active, /opt/magpie/current -> releases/c01edc54c274. Not checked:
-  `magpie-hubd status` (folderErrors): the session refused the sudo, and the `power run` request
-  timed out waiting for the owner's tap.
+  magpie-hub and magpie-hubd active, /opt/magpie/current -> releases/c01edc54c274. Status (via
+  `power run` once the owner allowed it, 21:52 UTC): v2.1.7-rc.3.dev.106.gc01edc54-magpie,
+  folderErrors 0, encrypted, 6 files; Mac last seen 05:06 UTC, iPhone 10-22.
