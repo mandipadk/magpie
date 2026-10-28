@@ -47,5 +47,19 @@ with no arguments still uses it.
     sudo rm /etc/sudoers.d/magpie-deploy /usr/local/sbin/magpie-deploy
     sudo visudo -c
 
-That's all: `deploy.sh` (no arguments) works exactly as before, and a deploy goes back to
-needing a root approval each time.
+That's all: deploys go back to `deploy.sh` with no arguments, exactly as before. That path is
+already password-free for sudo under `/etc/sudoers.d/magpie`.
+
+## Why this exists when sudo already allows it
+
+At the server level `/etc/sudoers.d/magpie-deploy` adds nothing: `/etc/sudoers.d/magpie`
+already lets ubuntu run every privileged step of `deploy.sh` without a password, and ubuntu
+also has `NOPASSWD: ALL` on Frankfurt. sudo never asked for approval. What stopped the daily
+duty was the agent session's safety check, which refuses a repo script that calls sudo, so
+each deploy went to the owner through `power run`. The wrapper gives that check one fixed,
+root-owned command to allow:
+
+    ssh frankfurt 'sudo -n /usr/local/sbin/magpie-deploy'
+
+Unattended deploys need that command (and the status command) in the agents' allow rules;
+the sudoers file alone doesn't do it.
