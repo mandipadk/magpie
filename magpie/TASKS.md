@@ -243,3 +243,11 @@ public, and frankfurt:~/code/magpie). Page: https://magpie.mandip.dev (private, 
   magpie-hub and magpie-hubd active, /opt/magpie/current -> releases/c01edc54c274. Status (via
   `power run` once the owner allowed it, 21:52 UTC): v2.1.7-rc.3.dev.106.gc01edc54-magpie,
   folderErrors 0, encrypted, 6 files; Mac last seen 05:06 UTC, iPhone 10-22.
+- 2026-10-28 (cd045580): merged upstream ed38528d7 (2 commits: 9da9c11ef magic-token auth for
+  `syncthing browse`, lib/api + cmd/syncthing; ed38528d7 invalid remote files not "available",
+  internal/db/sqlite) as 2c90146d3, no conflicts, nothing under Magpie's paths touched. Chicago:
+  go test lib/api, internal/db/sqlite, lib/magpie/... ok. Frankfurt: --build-only 5/5 green
+  (v2.1.7-rc.3.dev.114.g2c90146d-magpie, go1.27.3). Pushed to frankfurt and origin (origin also got
+  efa890a7a, the magpie-deploy wrapper, which is still not installed on Frankfurt). NOT deployed:
+  deploy.sh was refused in-session; the `power run` ask timed out client-side and the owner hadn't
+  allowed it after a further 25 min. Hub left on c01edc54c274 (last good, up since 10-26 13:50).
