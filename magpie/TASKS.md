@@ -251,3 +251,6 @@ public, and frankfurt:~/code/magpie). Page: https://magpie.mandip.dev (private, 
   efa890a7a, the magpie-deploy wrapper, which is still not installed on Frankfurt). NOT deployed:
   deploy.sh was refused in-session; the `power run` ask timed out client-side and the owner hadn't
   allowed it after a further 25 min. Hub left on c01edc54c274 (last good, up since 10-26 13:50).
+  Later the same day the owner allowed it: deployed 05b0f037a257 (the merge + this note), build's
+  own tests green again, v2.1.7-rc.3.dev.115.g05b0f037-magpie, folderErrors 0, encrypted, 6 files,
+  magpie-hub and magpie-hubd active. Mac not yet reconnected at 2 s uptime (last seen 19:17 UTC).
