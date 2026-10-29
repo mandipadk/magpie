@@ -254,3 +254,7 @@ public, and frankfurt:~/code/magpie). Page: https://magpie.mandip.dev (private, 
   Later the same day the owner allowed it: deployed 05b0f037a257 (the merge + this note), build's
   own tests green again, v2.1.7-rc.3.dev.115.g05b0f037-magpie, folderErrors 0, encrypted, 6 files,
   magpie-hub and magpie-hubd active. Mac not yet reconnected at 2 s uptime (last seen 19:17 UTC).
+- 2026-10-29 (cfe46983): upstream/main still ed38528d7, already merged; nothing to take. Since the
+  deployed d79f6688da39 only deploy docs/sudoers notes changed, so no rebuild or redeploy. Frankfurt
+  (09:31 UTC): magpie-hub and magpie-hubd active; status v2.1.7-rc.3.dev.116.gd79f6688-magpie,
+  folderErrors 0, encrypted, 6 files; Mac last seen 05:04 UTC, iPhone 10-22.
