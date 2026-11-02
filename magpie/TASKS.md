@@ -258,3 +258,19 @@ public, and frankfurt:~/code/magpie). Page: https://magpie.mandip.dev (private, 
   deployed d79f6688da39 only deploy docs/sudoers notes changed, so no rebuild or redeploy. Frankfurt
   (09:31 UTC): magpie-hub and magpie-hubd active; status v2.1.7-rc.3.dev.116.gd79f6688-magpie,
   folderErrors 0, encrypted, 6 files; Mac last seen 05:04 UTC, iPhone 10-22.
+- 2026-11-02 (693e2a, weekly security review). Checked: govulncheck v1.9.0 (Go 1.27.3, still the
+  newest) on lib/magpie, cmd/magpie-hubd, cmd/syncthing and the deployed syncthing + magpie-hubd
+  binaries (d79f6688da39): nothing reachable; module-only hits GO-2026-6866 and GO-2026-6860
+  (x/net/html, not imported; x/net v0.60.0) and GO-2026-5932 (x/crypto/openpgp, not imported). No
+  new Syncthing or quic-go (v0.63.0) advisories. Hub: only 22000 tcp/udp public for Magpie (plus
+  sshd, geph5-exit 443, rpcbind 111: not Magpie), API on 127.0.0.1:8385, folder receiveencrypted,
+  no plaintext outside *.syncthing-enc except the by-design history/.magpie/invite-key (spot-check:
+  64 KiB at 8.00 bits/byte), firewall check ok, devices = MacBook Pro (seen 11-01) + iPhone (seen
+  10-22), invite used list still 2 (10-19), journal: 229 failed TLS handshakes in a week, scanners,
+  max 39 per address. Code: nothing changed in lib/magpie, cmd/magpie-hubd or apps since
+  c01edc54c; reviewed the new magpie-deploy wrapper and sudoers-deploy (repo matches the installed
+  root-owned copies; nothing from the repo runs as root) and upstream's login-token change in lib/api
+  (behind auth, hub API is loopback-only). GitHub: exactly the 8 secrets; Magpie workflows fully
+  SHA-pinned; enabled upstream workflows (trigger-nightly, update-docs-translations, org-members)
+  guarded to syncthing; no secrets in the changes since last week. Fixed: nothing needed. Still
+  open: the three tasks in 6 from 10-26. Not tested: anything on a real device.
