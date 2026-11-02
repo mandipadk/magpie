@@ -276,6 +276,6 @@ public, and frankfurt:~/code/magpie). Page: https://magpie.mandip.dev (private, 
   open: the three tasks in 6 from 10-26. Not tested: anything on a real device.
 - 2026-11-02 (9330a060): merged upstream b34734376 (1 commit: fr/ro-RO translations, about dialog,
   AUTHORS) as 58fba9b57, no conflicts; Frankfurt `deploy.sh --build-only` 5/5 green (lib/magpie,
-  cmd/magpie-hubd vs real hub); pushed origin + frankfurt. NOT deployed yet: the session refused the
-  production deploy and the `power run` approval timed out with no answer; hub still on last-good
-  d79f6688da39. Next: run `magpie/deploy.sh` on Frankfurt once allowed, then check status.
+  cmd/magpie-hubd vs real hub); pushed origin + frankfurt. Deployed after the owner allowed it
+  (ask-me Proceed, ~16:54 UTC): deploy.sh built ebd06348cd3c (merge + this note), tests green,
+  installed; status: v2.1.7-rc.3.dev.123.gebd06348-magpie, folderErrors 0, encrypted, 6 files.
