@@ -274,3 +274,8 @@ public, and frankfurt:~/code/magpie). Page: https://magpie.mandip.dev (private, 
   SHA-pinned; enabled upstream workflows (trigger-nightly, update-docs-translations, org-members)
   guarded to syncthing; no secrets in the changes since last week. Fixed: nothing needed. Still
   open: the three tasks in 6 from 10-26. Not tested: anything on a real device.
+- 2026-11-02 (9330a060): merged upstream b34734376 (1 commit: fr/ro-RO translations, about dialog,
+  AUTHORS) as 58fba9b57, no conflicts; Frankfurt `deploy.sh --build-only` 5/5 green (lib/magpie,
+  cmd/magpie-hubd vs real hub); pushed origin + frankfurt. NOT deployed yet: the session refused the
+  production deploy and the `power run` approval timed out with no answer; hub still on last-good
+  d79f6688da39. Next: run `magpie/deploy.sh` on Frankfurt once allowed, then check status.
