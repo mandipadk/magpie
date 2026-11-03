@@ -44,11 +44,25 @@ with no arguments still uses it.
 
 ## Rollback
 
+If `agent-allow.sh apply` has been run (see below), undo it first, on Chicago:
+
+    ~/code/magpie/magpie/deploy/agent-allow.sh undo
+
+That removes the two allow rules from `~/.claude/settings.json` and puts the daily duty's
+(6c6e20) old deploy step back: run `magpie/deploy.sh` on Frankfurt, then the status check.
+Without this step the duty would keep calling a wrapper that's gone. `apply` also left
+backups, `~/.claude/settings.json.before-magpie-deploy` and
+`~/.switchback/keeper.json.before-magpie-deploy`, but don't restore the keeper one: it would
+also roll back every want and duty change made since. `undo` touches only what `apply` did.
+
+Then, on Frankfurt:
+
     sudo rm /etc/sudoers.d/magpie-deploy /usr/local/sbin/magpie-deploy
     sudo visudo -c
 
-That's all: deploys go back to `deploy.sh` with no arguments, exactly as before. That path is
-already password-free for sudo under `/etc/sudoers.d/magpie`.
+Deploys are then back to `deploy.sh` with no arguments, exactly as before. That path is
+already password-free for sudo under `/etc/sudoers.d/magpie`; each deploy goes back to the
+owner's approval through the agent session.
 
 ## Why this exists when sudo already allows it
 
@@ -62,4 +76,10 @@ root-owned command to allow:
     ssh frankfurt 'sudo -n /usr/local/sbin/magpie-deploy'
 
 Unattended deploys need that command (and the status command) in the agents' allow rules;
-the sudoers file alone doesn't do it.
+the sudoers file alone doesn't do it. Agents may not add those rules themselves, so the owner
+runs, on Chicago:
+
+    ~/code/magpie/magpie/deploy/agent-allow.sh apply
+
+It adds exactly the two rules to `~/.claude/settings.json` and changes the duty's deploy step
+to call the wrapper; `undo` reverses both (see Rollback).
