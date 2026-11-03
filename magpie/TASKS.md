@@ -279,3 +279,5 @@ public, and frankfurt:~/code/magpie). Page: https://magpie.mandip.dev (private, 
   cmd/magpie-hubd vs real hub); pushed origin + frankfurt. Deployed after the owner allowed it
   (ask-me Proceed, ~16:54 UTC): deploy.sh built ebd06348cd3c (merge + this note), tests green,
   installed; status: v2.1.7-rc.3.dev.123.gebd06348-magpie, folderErrors 0, encrypted, 6 files.
+- 2026-11-03 (d3a540d9): upstream/main unchanged since b34734376 (already merged), nothing to merge,
+  build or deploy. Hub status: v2.1.7-rc.3.dev.123.gebd06348-magpie, folderErrors 0, encrypted.
